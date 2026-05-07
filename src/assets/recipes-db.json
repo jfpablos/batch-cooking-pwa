@@ -1,0 +1,1120 @@
+[
+  {
+    "id": "desayuno-omelette-avena-001",
+    "name": "Omelette de 4 huevos con avena y plátano",
+    "category": "desayuno",
+    "difficulty": "fácil",
+    "prepTime": 5,
+    "cookTime": 10,
+    "servings": 1,
+    "ingredients": [
+      { "name": "huevos", "amount": 4, "unit": "unidad" },
+      { "name": "avena en copos", "amount": 100, "unit": "g" },
+      { "name": "plátano", "amount": 120, "unit": "g" },
+      { "name": "leche semidesnatada", "amount": 100, "unit": "ml" },
+      { "name": "aceite de oliva virgen extra", "amount": 10, "unit": "ml" },
+      { "name": "sal", "amount": 2, "unit": "g" }
+    ],
+    "steps": [
+      "Batir los 4 huevos con un pellizco de sal.",
+      "Preparar la avena: mezclar copos con leche y calentar 2 min en microondas, removiendo a mitad.",
+      "Calentar una sartén antiadherente con aceite a fuego medio.",
+      "Verter los huevos batidos y cuajar la tortilla a gusto (jugosa o bien hecha).",
+      "Servir la omelette acompañada del bol de avena y el plátano."
+    ],
+    "nutrition": {
+      "calories": 675,
+      "protein": 37,
+      "carbs": 72,
+      "fat": 22,
+      "fiber": 7
+    },
+    "storage": {
+      "days": 3,
+      "instructions": "La omelette se puede guardar en tupper en nevera. La avena prepararse al momento.",
+      "freezable": false
+    },
+    "tags": ["huevos", "avena", "batch-friendly", "alto-proteína"],
+    "batchMultiplier": 5,
+    "batchNotes": "Preparar 5 omelettes separadas y guardar en tuppers individuales. La avena preparar cada día en microondas (2 min).",
+    "source": "base"
+  },
+  {
+    "id": "desayuno-bowl-avena-whey-001",
+    "name": "Bowl de avena con proteína y frutos rojos",
+    "category": "desayuno",
+    "difficulty": "fácil",
+    "prepTime": 5,
+    "cookTime": 5,
+    "servings": 1,
+    "ingredients": [
+      { "name": "avena en copos", "amount": 100, "unit": "g" },
+      { "name": "proteína whey sabor vainilla", "amount": 30, "unit": "g" },
+      { "name": "leche semidesnatada", "amount": 200, "unit": "ml" },
+      { "name": "plátano", "amount": 100, "unit": "g" },
+      { "name": "frutos rojos congelados", "amount": 80, "unit": "g" },
+      { "name": "mantequilla de cacahuete", "amount": 20, "unit": "g" }
+    ],
+    "steps": [
+      "Calentar la leche con la avena en microondas durante 3 minutos, removiendo a la mitad.",
+      "Dejar enfriar 1 minuto y añadir el whey, mezclando bien para evitar grumos.",
+      "Cortar el plátano en rodajas y añadir los frutos rojos.",
+      "Coronar con la mantequilla de cacahuete.",
+      "Se puede preparar como overnight oats la noche anterior (sin calentar)."
+    ],
+    "nutrition": {
+      "calories": 680,
+      "protein": 45,
+      "carbs": 82,
+      "fat": 15,
+      "fiber": 9
+    },
+    "storage": {
+      "days": 4,
+      "instructions": "Preparar como overnight oats en botes de cristal hermético en nevera hasta 4 días.",
+      "freezable": false
+    },
+    "tags": ["avena", "whey", "batch-friendly", "sin-cocción"],
+    "batchMultiplier": 5,
+    "batchNotes": "Preparar 5 botes de overnight oats el domingo. Guardar en nevera hasta 4 días. Añadir la fruta y whey al momento de comer.",
+    "source": "base"
+  },
+  {
+    "id": "desayuno-tostadas-pavo-aguacate-001",
+    "name": "Tostadas integrales con pavo y aguacate",
+    "category": "desayuno",
+    "difficulty": "fácil",
+    "prepTime": 10,
+    "cookTime": 5,
+    "servings": 1,
+    "ingredients": [
+      { "name": "pan integral de molde", "amount": 120, "unit": "g" },
+      { "name": "pechuga de pavo loncheada", "amount": 120, "unit": "g" },
+      { "name": "aguacate", "amount": 80, "unit": "g" },
+      { "name": "huevos", "amount": 3, "unit": "unidad" },
+      { "name": "tomate", "amount": 100, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 10, "unit": "ml" },
+      { "name": "sal y pimienta", "amount": 2, "unit": "g" }
+    ],
+    "steps": [
+      "Tostar las rebanadas de pan integral.",
+      "Chafar el aguacate con tenedor, añadir sal y unas gotas de limón.",
+      "Freír los huevos con aceite o hacerlos revueltos.",
+      "Untar el aguacate en las tostadas, añadir el pavo y los huevos.",
+      "Acompañar con tomate natural cortado."
+    ],
+    "nutrition": {
+      "calories": 690,
+      "protein": 48,
+      "carbs": 58,
+      "fat": 26,
+      "fiber": 8
+    },
+    "storage": {
+      "days": 2,
+      "instructions": "Preparar al momento. El aguacate se oxida: guardar con limón y film a piel.",
+      "freezable": false
+    },
+    "tags": ["huevos", "pavo", "aguacate", "tostadas"],
+    "batchMultiplier": 1,
+    "batchNotes": "Este desayuno es mejor prepararlo al momento. El pavo y el pan se conservan bien, pero el aguacate y los huevos son mejor frescos.",
+    "source": "base"
+  },
+  {
+    "id": "desayuno-pancakes-avena-001",
+    "name": "Tortitas de avena con requesón y miel",
+    "category": "desayuno",
+    "difficulty": "medio",
+    "prepTime": 10,
+    "cookTime": 15,
+    "servings": 1,
+    "ingredients": [
+      { "name": "avena molida", "amount": 100, "unit": "g" },
+      { "name": "huevos", "amount": 3, "unit": "unidad" },
+      { "name": "requesón", "amount": 150, "unit": "g" },
+      { "name": "plátano maduro", "amount": 100, "unit": "g" },
+      { "name": "leche semidesnatada", "amount": 50, "unit": "ml" },
+      { "name": "levadura en polvo", "amount": 5, "unit": "g" },
+      { "name": "miel", "amount": 20, "unit": "g" },
+      { "name": "aceite de coco", "amount": 10, "unit": "g" }
+    ],
+    "steps": [
+      "Triturar el plátano con tenedor hasta obtener puré.",
+      "Mezclar avena molida, huevos, leche, plátano y levadura.",
+      "Batir hasta obtener masa homogénea (puede quedar algún grumo de plátano).",
+      "Calentar sartén con aceite de coco a fuego medio.",
+      "Verter cucharones de masa y cocinar 2-3 min por lado hasta dorar.",
+      "Servir con requesón y un hilo de miel."
+    ],
+    "nutrition": {
+      "calories": 720,
+      "protein": 38,
+      "carbs": 95,
+      "fat": 20,
+      "fiber": 8
+    },
+    "storage": {
+      "days": 4,
+      "instructions": "Las tortitas se guardan en tupper con papel entre ellas. Calentar en microondas 1 min.",
+      "freezable": true
+    },
+    "tags": ["avena", "huevos", "batch-friendly", "pancakes"],
+    "batchMultiplier": 5,
+    "batchNotes": "Hacer x5 la masa. Hacer tandas en la sartén y guardar en tuppers de 5-6 tortitas. Congelar las que soben.",
+    "source": "base"
+  },
+  {
+    "id": "desayuno-yogur-granola-001",
+    "name": "Bowl de yogur griego con granola y fruta",
+    "category": "desayuno",
+    "difficulty": "fácil",
+    "prepTime": 5,
+    "cookTime": 0,
+    "servings": 1,
+    "ingredients": [
+      { "name": "yogur griego 0% MG", "amount": 300, "unit": "g" },
+      { "name": "granola sin azúcar añadido", "amount": 80, "unit": "g" },
+      { "name": "plátano", "amount": 120, "unit": "g" },
+      { "name": "manzana", "amount": 150, "unit": "g" },
+      { "name": "proteína whey sabor vainilla", "amount": 25, "unit": "g" },
+      { "name": "miel", "amount": 15, "unit": "g" }
+    ],
+    "steps": [
+      "Mezclar el yogur griego con el whey en proteína hasta que no queden grumos.",
+      "Colocar en bol y añadir la granola.",
+      "Cortar la fruta y añadir encima.",
+      "Terminar con un hilo de miel."
+    ],
+    "nutrition": {
+      "calories": 665,
+      "protein": 47,
+      "carbs": 88,
+      "fat": 12,
+      "fiber": 6
+    },
+    "storage": {
+      "days": 3,
+      "instructions": "Preparar el yogur con whey y guardar en bote. Añadir granola y fruta al momento.",
+      "freezable": false
+    },
+    "tags": ["yogur griego", "granola", "sin cocción", "alto-proteína"],
+    "batchMultiplier": 5,
+    "batchNotes": "Preparar 5 botes de yogur + whey el domingo. Guardar granola y fruta por separado.",
+    "source": "base"
+  },
+  {
+    "id": "desayuno-sandwich-jamon-001",
+    "name": "Sandwich integral con jamón york y huevo",
+    "category": "desayuno",
+    "difficulty": "fácil",
+    "prepTime": 10,
+    "cookTime": 5,
+    "servings": 1,
+    "ingredients": [
+      { "name": "pan integral de molde", "amount": 120, "unit": "g" },
+      { "name": "jamón york bajo en sal", "amount": 100, "unit": "g" },
+      { "name": "huevos", "amount": 2, "unit": "unidad" },
+      { "name": "queso fresco batido 0%", "amount": 100, "unit": "g" },
+      { "name": "tomate", "amount": 80, "unit": "g" },
+      { "name": "lechuga", "amount": 30, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 10, "unit": "ml" }
+    ],
+    "steps": [
+      "Freír o cocer los huevos al gusto.",
+      "Tostar el pan integral.",
+      "Untar el queso fresco en el pan.",
+      "Añadir el jamón, el huevo, la lechuga y el tomate.",
+      "Acompañar con un vaso de zumo o fruta."
+    ],
+    "nutrition": {
+      "calories": 640,
+      "protein": 46,
+      "carbs": 65,
+      "fat": 18,
+      "fiber": 7
+    },
+    "storage": {
+      "days": 2,
+      "instructions": "Mejor preparar al momento. Guardar ingredientes por separado en nevera.",
+      "freezable": false
+    },
+    "tags": ["huevos", "jamón york", "sandwich", "rápido"],
+    "batchMultiplier": 1,
+    "batchNotes": "Preparar al momento para mejor textura. Tener los ingredientes preparados en nevera.",
+    "source": "base"
+  },
+  {
+    "id": "pre-arroz-atun-001",
+    "name": "Arroz blanco con atún y zanahoria",
+    "category": "pre-entreno",
+    "difficulty": "fácil",
+    "prepTime": 5,
+    "cookTime": 20,
+    "servings": 1,
+    "ingredients": [
+      { "name": "arroz blanco", "amount": 150, "unit": "g" },
+      { "name": "atún en agua", "amount": 160, "unit": "g" },
+      { "name": "zanahoria", "amount": 100, "unit": "g" },
+      { "name": "salsa de soja baja en sal", "amount": 15, "unit": "ml" },
+      { "name": "aceite de oliva virgen extra", "amount": 5, "unit": "ml" }
+    ],
+    "steps": [
+      "Cocer el arroz en agua con sal según instrucciones (18-20 min).",
+      "Pelar y rallar la zanahoria.",
+      "Escurrir el atún en agua.",
+      "Mezclar arroz, atún y zanahoria.",
+      "Aliñar con soja y aceite."
+    ],
+    "nutrition": {
+      "calories": 520,
+      "protein": 35,
+      "carbs": 82,
+      "fat": 6,
+      "fiber": 3
+    },
+    "storage": {
+      "days": 4,
+      "instructions": "Guardar en tupper hermético en nevera hasta 4 días. Calentar con un chorrito de agua.",
+      "freezable": false
+    },
+    "tags": ["arroz", "atún", "batch-friendly", "pre-entreno"],
+    "batchMultiplier": 5,
+    "batchNotes": "Cocer 750g de arroz seco (rinde ×3 cocido). Escurrir 5 latas de atún. Dividir en 5 tuppers.",
+    "source": "base"
+  },
+  {
+    "id": "pre-platano-mantequilla-cacahuete-001",
+    "name": "Plátano con mantequilla de cacahuete y avena",
+    "category": "pre-entreno",
+    "difficulty": "fácil",
+    "prepTime": 5,
+    "cookTime": 0,
+    "servings": 1,
+    "ingredients": [
+      { "name": "plátano grande", "amount": 240, "unit": "g" },
+      { "name": "mantequilla de cacahuete natural", "amount": 40, "unit": "g" },
+      { "name": "avena en copos", "amount": 60, "unit": "g" },
+      { "name": "leche semidesnatada", "amount": 150, "unit": "ml" },
+      { "name": "miel", "amount": 15, "unit": "g" }
+    ],
+    "steps": [
+      "Preparar la avena con la leche en microondas 2 minutos.",
+      "Cortar los plátanos en rodajas.",
+      "Servir la avena con los plátanos encima.",
+      "Añadir la mantequilla de cacahuete y la miel."
+    ],
+    "nutrition": {
+      "calories": 530,
+      "protein": 18,
+      "carbs": 82,
+      "fat": 14,
+      "fiber": 8
+    },
+    "storage": {
+      "days": 1,
+      "instructions": "Preparar al momento. El plátano se oxida si se corta con antelación.",
+      "freezable": false
+    },
+    "tags": ["plátano", "avena", "sin-cocción", "rápido", "pre-entreno"],
+    "batchMultiplier": 1,
+    "batchNotes": "Preparar al momento. Tener los plátanos y la mantequilla de cacahuete a mano.",
+    "source": "base"
+  },
+  {
+    "id": "pre-batido-carbos-001",
+    "name": "Batido de carbos con avena y plátano",
+    "category": "pre-entreno",
+    "difficulty": "fácil",
+    "prepTime": 5,
+    "cookTime": 0,
+    "servings": 1,
+    "ingredients": [
+      { "name": "avena en copos finos", "amount": 80, "unit": "g" },
+      { "name": "plátano congelado", "amount": 200, "unit": "g" },
+      { "name": "leche semidesnatada", "amount": 250, "unit": "ml" },
+      { "name": "miel", "amount": 20, "unit": "g" },
+      { "name": "proteína whey sabor vainilla", "amount": 15, "unit": "g" }
+    ],
+    "steps": [
+      "Poner todos los ingredientes en la batidora.",
+      "Triturar hasta obtener textura homogénea.",
+      "Servir inmediatamente o guardar en bote en nevera máximo 2 horas."
+    ],
+    "nutrition": {
+      "calories": 515,
+      "protein": 22,
+      "carbs": 88,
+      "fat": 7,
+      "fiber": 6
+    },
+    "storage": {
+      "days": 1,
+      "instructions": "Consumir inmediatamente o en las 2 horas siguientes. No apto para batch.",
+      "freezable": false
+    },
+    "tags": ["batido", "avena", "plátano", "rápido", "pre-entreno"],
+    "batchMultiplier": 1,
+    "batchNotes": "Preparar al momento. Tener los plátanos congelados preparados en bolsas.",
+    "source": "base"
+  },
+  {
+    "id": "pre-tortitas-avena-001",
+    "name": "Tortitas de avena con mermelada y plátano",
+    "category": "pre-entreno",
+    "difficulty": "fácil",
+    "prepTime": 5,
+    "cookTime": 10,
+    "servings": 1,
+    "ingredients": [
+      { "name": "avena en copos finos", "amount": 120, "unit": "g" },
+      { "name": "huevo", "amount": 1, "unit": "unidad" },
+      { "name": "leche semidesnatada", "amount": 100, "unit": "ml" },
+      { "name": "plátano", "amount": 120, "unit": "g" },
+      { "name": "mermelada de fresa sin azúcar", "amount": 40, "unit": "g" },
+      { "name": "aceite de coco", "amount": 5, "unit": "g" }
+    ],
+    "steps": [
+      "Batir avena, huevo y leche hasta masa homogénea.",
+      "Calentar sartén con aceite de coco.",
+      "Hacer 4-5 tortitas pequeñas, 2 min por lado.",
+      "Servir con mermelada y rodajas de plátano."
+    ],
+    "nutrition": {
+      "calories": 510,
+      "protein": 18,
+      "carbs": 88,
+      "fat": 9,
+      "fiber": 9
+    },
+    "storage": {
+      "days": 4,
+      "instructions": "Guardar tortitas en tupper con papel. Calentar 1 min en microondas.",
+      "freezable": true
+    },
+    "tags": ["avena", "tortitas", "batch-friendly", "pre-entreno"],
+    "batchMultiplier": 5,
+    "batchNotes": "Hacer x5 la masa (600g avena, 5 huevos, 500ml leche). Preparar tandas. Guardar en tuppers.",
+    "source": "base"
+  },
+  {
+    "id": "pre-arroz-pollo-001",
+    "name": "Arroz blanco con pollo y pimiento",
+    "category": "pre-entreno",
+    "difficulty": "fácil",
+    "prepTime": 5,
+    "cookTime": 20,
+    "servings": 1,
+    "ingredients": [
+      { "name": "arroz blanco", "amount": 130, "unit": "g" },
+      { "name": "pechuga de pollo", "amount": 100, "unit": "g" },
+      { "name": "pimiento rojo", "amount": 100, "unit": "g" },
+      { "name": "sal, orégano y ajo", "amount": 5, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 8, "unit": "ml" }
+    ],
+    "steps": [
+      "Cocer el arroz en agua con sal 18 minutos.",
+      "Cortar el pollo en dados pequeños y el pimiento en tiras.",
+      "Saltear pollo con aceite, sal, ajo y orégano 8 minutos.",
+      "Añadir el pimiento y saltear 3 min más.",
+      "Mezclar con el arroz cocido."
+    ],
+    "nutrition": {
+      "calories": 510,
+      "protein": 28,
+      "carbs": 76,
+      "fat": 8,
+      "fiber": 3
+    },
+    "storage": {
+      "days": 4,
+      "instructions": "Tupper hermético en nevera 4 días. Calentar con unas gotas de agua.",
+      "freezable": true
+    },
+    "tags": ["arroz", "pollo", "batch-friendly", "pre-entreno"],
+    "batchMultiplier": 5,
+    "batchNotes": "Cocer 650g arroz seco. Saltear 500g pollo con pimiento. Dividir en 5 tuppers.",
+    "source": "base"
+  },
+  {
+    "id": "principal-pollo-arroz-brocoli-001",
+    "name": "Pechuga de pollo con arroz integral y brócoli",
+    "category": "principal",
+    "difficulty": "fácil",
+    "prepTime": 10,
+    "cookTime": 35,
+    "servings": 1,
+    "ingredients": [
+      { "name": "pechuga de pollo", "amount": 250, "unit": "g" },
+      { "name": "arroz integral", "amount": 150, "unit": "g" },
+      { "name": "brócoli", "amount": 200, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 15, "unit": "ml" },
+      { "name": "ajo", "amount": 10, "unit": "g" },
+      { "name": "limón", "amount": 30, "unit": "ml" },
+      { "name": "sal, pimienta, pimentón", "amount": 5, "unit": "g" }
+    ],
+    "steps": [
+      "Cocer el arroz integral 30-35 minutos en agua con sal.",
+      "Marinar la pechuga con aceite, ajo picado, pimentón, sal y limón 10 min.",
+      "Cocinar la pechuga a la plancha 6-7 min por lado hasta dorar.",
+      "Cocer el brócoli al vapor 8 minutos.",
+      "Servir la pechuga fileteada sobre el arroz con el brócoli al lado."
+    ],
+    "nutrition": {
+      "calories": 930,
+      "protein": 58,
+      "carbs": 115,
+      "fat": 18,
+      "fiber": 12
+    },
+    "storage": {
+      "days": 5,
+      "instructions": "Tupper hermético en nevera hasta 5 días. Calentar en microondas 2-3 min con tapa.",
+      "freezable": true
+    },
+    "tags": ["pollo", "arroz integral", "brócoli", "batch-friendly", "alto-proteína"],
+    "batchMultiplier": 5,
+    "batchNotes": "Cocer 750g arroz integral. Planchar 5 pechugas (1,25kg). Cocer 1kg brócoli al vapor. Dividir en 5 tuppers grandes.",
+    "source": "base"
+  },
+  {
+    "id": "principal-salmon-boniato-001",
+    "name": "Salmón al horno con boniato y espinacas",
+    "category": "principal",
+    "difficulty": "fácil",
+    "prepTime": 15,
+    "cookTime": 30,
+    "servings": 1,
+    "ingredients": [
+      { "name": "lomo de salmón", "amount": 220, "unit": "g" },
+      { "name": "boniato", "amount": 200, "unit": "g" },
+      { "name": "espinacas frescas", "amount": 150, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 15, "unit": "ml" },
+      { "name": "limón", "amount": 30, "unit": "ml" },
+      { "name": "ajo en polvo, sal, eneldo", "amount": 5, "unit": "g" }
+    ],
+    "steps": [
+      "Precalentar horno a 200°C.",
+      "Pelar y cortar el boniato en dados de 2cm. Mezclar con aceite y sal.",
+      "Hornear el boniato 20 min. Añadir el salmón en la misma bandeja y hornear 15 min más.",
+      "Saltear las espinacas con ajo en sartén 3 minutos.",
+      "Servir el salmón con el boniato y las espinacas, regar con limón."
+    ],
+    "nutrition": {
+      "calories": 945,
+      "protein": 50,
+      "carbs": 82,
+      "fat": 38,
+      "fiber": 10
+    },
+    "storage": {
+      "days": 3,
+      "instructions": "Tupper en nevera 3 días. Calentar el salmón con cuidado (90 seg en microondas).",
+      "freezable": false
+    },
+    "tags": ["salmón", "boniato", "espinacas", "batch-friendly", "omega-3"],
+    "batchMultiplier": 5,
+    "batchNotes": "Hornear 5 lomos de salmón y 1kg de boniato. Saltear 750g espinacas. Dividir en tuppers.",
+    "source": "base"
+  },
+  {
+    "id": "principal-ternera-patata-001",
+    "name": "Ternera guisada con patata y judías verdes",
+    "category": "principal",
+    "difficulty": "medio",
+    "prepTime": 15,
+    "cookTime": 45,
+    "servings": 1,
+    "ingredients": [
+      { "name": "ternera para guisar", "amount": 280, "unit": "g" },
+      { "name": "patata", "amount": 200, "unit": "g" },
+      { "name": "judías verdes", "amount": 150, "unit": "g" },
+      { "name": "cebolla", "amount": 80, "unit": "g" },
+      { "name": "tomate triturado", "amount": 100, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 15, "unit": "ml" },
+      { "name": "ajo, laurel, pimentón, sal", "amount": 10, "unit": "g" }
+    ],
+    "steps": [
+      "Cortar la ternera en dados, salpimentar.",
+      "Dorar en aceite a fuego fuerte. Reservar.",
+      "En la misma olla, sofreír cebolla y ajo picados 5 min.",
+      "Añadir tomate, pimentón y laurel. Cocinar 3 min.",
+      "Incorporar la ternera, cubrir con agua y guisar 30 min tapado.",
+      "Añadir la patata cortada y las judías. Cocinar 15 min más."
+    ],
+    "nutrition": {
+      "calories": 940,
+      "protein": 56,
+      "carbs": 78,
+      "fat": 30,
+      "fiber": 11
+    },
+    "storage": {
+      "days": 5,
+      "instructions": "Tupper en nevera 5 días. Mejora de sabor al día siguiente. Congelar el exceso.",
+      "freezable": true
+    },
+    "tags": ["ternera", "patata", "guisado", "batch-friendly"],
+    "batchMultiplier": 5,
+    "batchNotes": "Hacer x5 en olla grande. Guisar 1,4kg ternera. Dividir en tuppers grandes. Ideal para congelar.",
+    "source": "base"
+  },
+  {
+    "id": "principal-pavo-quinoa-001",
+    "name": "Pavo salteado con quinoa y verduras mediterráneas",
+    "category": "principal",
+    "difficulty": "fácil",
+    "prepTime": 15,
+    "cookTime": 25,
+    "servings": 1,
+    "ingredients": [
+      { "name": "pechuga de pavo", "amount": 250, "unit": "g" },
+      { "name": "quinoa", "amount": 120, "unit": "g" },
+      { "name": "calabacín", "amount": 150, "unit": "g" },
+      { "name": "pimiento rojo", "amount": 100, "unit": "g" },
+      { "name": "cebolla roja", "amount": 80, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 15, "unit": "ml" },
+      { "name": "orégano, tomillo, sal, ajo", "amount": 8, "unit": "g" }
+    ],
+    "steps": [
+      "Cocer quinoa en agua (doble de agua) 15 min, escurrir.",
+      "Cortar el pavo en tiras y las verduras en dados.",
+      "Saltear el pavo con especias en aceite 8 min.",
+      "Añadir las verduras y saltear 5 min más.",
+      "Mezclar con la quinoa cocida."
+    ],
+    "nutrition": {
+      "calories": 925,
+      "protein": 60,
+      "carbs": 95,
+      "fat": 22,
+      "fiber": 10
+    },
+    "storage": {
+      "days": 4,
+      "instructions": "Tupper en nevera 4 días. Calentar 2-3 min con tapa en microondas.",
+      "freezable": true
+    },
+    "tags": ["pavo", "quinoa", "mediterráneo", "batch-friendly", "alto-proteína"],
+    "batchMultiplier": 5,
+    "batchNotes": "Cocer 600g quinoa seca. Saltear 1,25kg pavo con 2,5kg verduras. Dividir en 5 tuppers.",
+    "source": "base"
+  },
+  {
+    "id": "principal-merluza-arroz-001",
+    "name": "Merluza al horno con arroz integral y pisto",
+    "category": "principal",
+    "difficulty": "fácil",
+    "prepTime": 10,
+    "cookTime": 30,
+    "servings": 1,
+    "ingredients": [
+      { "name": "lomo de merluza", "amount": 280, "unit": "g" },
+      { "name": "arroz integral", "amount": 130, "unit": "g" },
+      { "name": "calabacín", "amount": 120, "unit": "g" },
+      { "name": "berenjena", "amount": 100, "unit": "g" },
+      { "name": "tomate", "amount": 100, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 15, "unit": "ml" },
+      { "name": "ajo, sal, orégano", "amount": 5, "unit": "g" }
+    ],
+    "steps": [
+      "Cocer arroz integral 30-35 min.",
+      "Precalentar horno a 190°C.",
+      "Preparar el pisto: saltear verduras en dados con aceite 15 min.",
+      "Hornear la merluza 15-18 min con sal y ajo.",
+      "Servir el arroz con el pisto y la merluza encima."
+    ],
+    "nutrition": {
+      "calories": 910,
+      "protein": 52,
+      "carbs": 104,
+      "fat": 22,
+      "fiber": 10
+    },
+    "storage": {
+      "days": 3,
+      "instructions": "Tupper en nevera 3 días. La merluza perder textura al calentar mucho (90 seg microondas).",
+      "freezable": false
+    },
+    "tags": ["merluza", "arroz integral", "pisto", "batch-friendly"],
+    "batchMultiplier": 5,
+    "batchNotes": "Hornear 5 lomos merluza a la vez. Hacer pisto grande. Cocer arroz integral en olla grande.",
+    "source": "base"
+  },
+  {
+    "id": "principal-lentejas-arroz-001",
+    "name": "Lentejas con arroz y espinacas",
+    "category": "principal",
+    "difficulty": "fácil",
+    "prepTime": 10,
+    "cookTime": 40,
+    "servings": 1,
+    "ingredients": [
+      { "name": "lentejas pardinas cocidas", "amount": 250, "unit": "g" },
+      { "name": "arroz integral", "amount": 100, "unit": "g" },
+      { "name": "espinacas congeladas", "amount": 150, "unit": "g" },
+      { "name": "cebolla", "amount": 80, "unit": "g" },
+      { "name": "zanahoria", "amount": 80, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 15, "unit": "ml" },
+      { "name": "comino, cúrcuma, ajo, sal", "amount": 8, "unit": "g" }
+    ],
+    "steps": [
+      "Cocer arroz integral 30-35 min.",
+      "Sofreír cebolla y zanahoria picadas en aceite 10 min.",
+      "Añadir especias y las espinacas descongeladas, mezclar 3 min.",
+      "Incorporar las lentejas y calentar 5 min.",
+      "Servir sobre el arroz integral."
+    ],
+    "nutrition": {
+      "calories": 895,
+      "protein": 42,
+      "carbs": 128,
+      "fat": 20,
+      "fiber": 22
+    },
+    "storage": {
+      "days": 5,
+      "instructions": "Tupper en nevera 5 días. Excelente para congelar.",
+      "freezable": true
+    },
+    "tags": ["lentejas", "arroz integral", "espinacas", "legumbres", "batch-friendly"],
+    "batchMultiplier": 5,
+    "batchNotes": "Hacer olla grande con 5 raciones. Las lentejas de bote son más cómodas para batch.",
+    "source": "base"
+  },
+  {
+    "id": "principal-pollo-boniato-001",
+    "name": "Muslos de pollo con boniato asado y brócoli",
+    "category": "principal",
+    "difficulty": "fácil",
+    "prepTime": 10,
+    "cookTime": 40,
+    "servings": 1,
+    "ingredients": [
+      { "name": "muslo de pollo deshuesado", "amount": 280, "unit": "g" },
+      { "name": "boniato", "amount": 220, "unit": "g" },
+      { "name": "brócoli", "amount": 200, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 15, "unit": "ml" },
+      { "name": "pimentón dulce, ajo, sal, romero", "amount": 8, "unit": "g" }
+    ],
+    "steps": [
+      "Precalentar horno a 200°C.",
+      "Mezclar pollo con especias y aceite. Cortar boniato en wedges.",
+      "Poner el pollo y el boniato en bandeja y hornear 35 min.",
+      "A mitad de cocción añadir el brócoli.",
+      "Hornear hasta que el pollo esté dorado y crujiente."
+    ],
+    "nutrition": {
+      "calories": 960,
+      "protein": 55,
+      "carbs": 88,
+      "fat": 35,
+      "fiber": 12
+    },
+    "storage": {
+      "days": 4,
+      "instructions": "Tupper en nevera 4 días. Calentar en horno o microondas.",
+      "freezable": true
+    },
+    "tags": ["pollo", "boniato", "horno", "batch-friendly"],
+    "batchMultiplier": 5,
+    "batchNotes": "Usar dos bandejas de horno a la vez. 1,4kg muslos + 1,1kg boniato + 1kg brócoli. Dividir en tuppers.",
+    "source": "base"
+  },
+  {
+    "id": "post-batido-whey-platano-001",
+    "name": "Batido proteico con whey, plátano y leche",
+    "category": "post-entreno",
+    "difficulty": "fácil",
+    "prepTime": 3,
+    "cookTime": 0,
+    "servings": 1,
+    "ingredients": [
+      { "name": "proteína whey sabor chocolate", "amount": 40, "unit": "g" },
+      { "name": "plátano", "amount": 200, "unit": "g" },
+      { "name": "leche semidesnatada", "amount": 300, "unit": "ml" },
+      { "name": "copos de avena finos", "amount": 30, "unit": "g" },
+      { "name": "cacao puro en polvo", "amount": 10, "unit": "g" }
+    ],
+    "steps": [
+      "Poner todos los ingredientes en la batidora.",
+      "Triturar 30-60 segundos hasta homogéneo.",
+      "Consumir inmediatamente tras el entrenamiento."
+    ],
+    "nutrition": {
+      "calories": 575,
+      "protein": 45,
+      "carbs": 72,
+      "fat": 9,
+      "fiber": 5
+    },
+    "storage": {
+      "days": 1,
+      "instructions": "Consumir inmediatamente. Si se prepara con antelación, guardar en bote hermético máximo 4 horas.",
+      "freezable": false
+    },
+    "tags": ["whey", "plátano", "batido", "post-entreno", "ventana-anabólica"],
+    "batchMultiplier": 1,
+    "batchNotes": "Preparar al momento. Tener ingredientes preparados: plátanos congelados en bolsas, botes de whey medidos.",
+    "source": "base"
+  },
+  {
+    "id": "post-pechuga-arroz-001",
+    "name": "Pechuga de pollo con arroz blanco y maíz",
+    "category": "post-entreno",
+    "difficulty": "fácil",
+    "prepTime": 5,
+    "cookTime": 20,
+    "servings": 1,
+    "ingredients": [
+      { "name": "pechuga de pollo", "amount": 200, "unit": "g" },
+      { "name": "arroz blanco", "amount": 150, "unit": "g" },
+      { "name": "maíz dulce en lata", "amount": 80, "unit": "g" },
+      { "name": "sal, ajo en polvo", "amount": 3, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 8, "unit": "ml" }
+    ],
+    "steps": [
+      "Cocer el arroz blanco 18 min en agua con sal.",
+      "Planchar la pechuga con ajo en polvo y sal, 6 min por lado.",
+      "Cortar la pechuga en dados.",
+      "Mezclar arroz con el maíz escurrido.",
+      "Servir el arroz con los dados de pollo encima."
+    ],
+    "nutrition": {
+      "calories": 570,
+      "protein": 48,
+      "carbs": 65,
+      "fat": 10,
+      "fiber": 3
+    },
+    "storage": {
+      "days": 4,
+      "instructions": "Tupper en nevera 4 días. Calentar con unas gotas de agua.",
+      "freezable": true
+    },
+    "tags": ["pollo", "arroz blanco", "batch-friendly", "post-entreno", "rápido"],
+    "batchMultiplier": 5,
+    "batchNotes": "Cocer 750g arroz seco. Planchar 5 pechugas (1kg). Dividir en 5 tuppers con maíz.",
+    "source": "base"
+  },
+  {
+    "id": "post-atun-patata-001",
+    "name": "Atún con patata cocida y guisantes",
+    "category": "post-entreno",
+    "difficulty": "fácil",
+    "prepTime": 5,
+    "cookTime": 20,
+    "servings": 1,
+    "ingredients": [
+      { "name": "atún en agua", "amount": 240, "unit": "g" },
+      { "name": "patata", "amount": 250, "unit": "g" },
+      { "name": "guisantes congelados", "amount": 100, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 8, "unit": "ml" },
+      { "name": "perejil, sal, limón", "amount": 5, "unit": "g" }
+    ],
+    "steps": [
+      "Cocer la patata pelada en agua 20 min hasta blanda.",
+      "Cocer los guisantes 5 min en agua hirviendo.",
+      "Escurrir el atún.",
+      "Chafar ligeramente la patata o dejar entera según preferencia.",
+      "Mezclar con guisantes, atún, aceite, limón y perejil."
+    ],
+    "nutrition": {
+      "calories": 565,
+      "protein": 50,
+      "carbs": 58,
+      "fat": 10,
+      "fiber": 8
+    },
+    "storage": {
+      "days": 4,
+      "instructions": "Tupper en nevera 4 días sin el atún mezclado (mejor añadirlo al momento).",
+      "freezable": false
+    },
+    "tags": ["atún", "patata", "batch-friendly", "post-entreno"],
+    "batchMultiplier": 5,
+    "batchNotes": "Cocer 1,25kg patata. Cocer 500g guisantes. Guardar por separado del atún en bote.",
+    "source": "base"
+  },
+  {
+    "id": "post-huevo-arroz-001",
+    "name": "Huevos revueltos con arroz blanco y tomate",
+    "category": "post-entreno",
+    "difficulty": "fácil",
+    "prepTime": 5,
+    "cookTime": 10,
+    "servings": 1,
+    "ingredients": [
+      { "name": "huevos", "amount": 4, "unit": "unidad" },
+      { "name": "arroz blanco", "amount": 130, "unit": "g" },
+      { "name": "tomate cherry", "amount": 100, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 8, "unit": "ml" },
+      { "name": "sal, cúrcuma, pimienta", "amount": 3, "unit": "g" }
+    ],
+    "steps": [
+      "Cocer el arroz blanco 18 min.",
+      "Batir los huevos con sal y cúrcuma.",
+      "Hacer los huevos revueltos en sartén con aceite a fuego bajo.",
+      "Servir sobre el arroz con los tomates cherry cortados al lado."
+    ],
+    "nutrition": {
+      "calories": 560,
+      "protein": 35,
+      "carbs": 59,
+      "fat": 20,
+      "fiber": 3
+    },
+    "storage": {
+      "days": 2,
+      "instructions": "El arroz se guarda 4 días. Los huevos revueltos mejor al momento (textura).",
+      "freezable": false
+    },
+    "tags": ["huevos", "arroz blanco", "rápido", "post-entreno"],
+    "batchMultiplier": 1,
+    "batchNotes": "Cocer el arroz en batch. Hacer los huevos al momento (5 min).",
+    "source": "base"
+  },
+  {
+    "id": "cena-salmon-esparragos-001",
+    "name": "Salmón a la plancha con espárragos y ensalada",
+    "category": "cena",
+    "difficulty": "fácil",
+    "prepTime": 10,
+    "cookTime": 15,
+    "servings": 1,
+    "ingredients": [
+      { "name": "lomo de salmón", "amount": 220, "unit": "g" },
+      { "name": "espárragos verdes", "amount": 200, "unit": "g" },
+      { "name": "lechuga mix", "amount": 100, "unit": "g" },
+      { "name": "tomate", "amount": 100, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 20, "unit": "ml" },
+      { "name": "limón, sal, pimienta", "amount": 10, "unit": "g" }
+    ],
+    "steps": [
+      "Calentar plancha o sartén antiadherente.",
+      "Cocinar el salmón 4 min por lado con sal y pimienta.",
+      "Saltear los espárragos con aceite y sal 5-7 min.",
+      "Preparar la ensalada con lechuga, tomate y aliño de aceite y limón.",
+      "Servir el salmón con los espárragos y la ensalada al lado."
+    ],
+    "nutrition": {
+      "calories": 580,
+      "protein": 45,
+      "carbs": 12,
+      "fat": 38,
+      "fiber": 6
+    },
+    "storage": {
+      "days": 2,
+      "instructions": "El salmón puede guardarse en nevera 2 días. Los espárragos en tupper 4 días.",
+      "freezable": false
+    },
+    "tags": ["salmón", "espárragos", "omega-3", "sin-gluten", "batch-friendly"],
+    "batchMultiplier": 5,
+    "batchNotes": "Preparar los espárragos en batch. El salmón es mejor al momento (5 min en plancha) o preparar todos en horno.",
+    "source": "base"
+  },
+  {
+    "id": "cena-merluza-patata-001",
+    "name": "Merluza al horno con patata y puerro",
+    "category": "cena",
+    "difficulty": "fácil",
+    "prepTime": 10,
+    "cookTime": 25,
+    "servings": 1,
+    "ingredients": [
+      { "name": "lomo de merluza", "amount": 250, "unit": "g" },
+      { "name": "patata pequeña", "amount": 150, "unit": "g" },
+      { "name": "puerro", "amount": 100, "unit": "g" },
+      { "name": "tomate", "amount": 80, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 20, "unit": "ml" },
+      { "name": "vino blanco", "amount": 30, "unit": "ml" },
+      { "name": "ajo, perejil, sal", "amount": 5, "unit": "g" }
+    ],
+    "steps": [
+      "Precalentar horno a 190°C.",
+      "Colocar la patata laminada y el puerro en la base de la bandeja con aceite.",
+      "Hornear las verduras 10 min.",
+      "Añadir la merluza, el tomate, el ajo y el vino blanco.",
+      "Hornear 15 min más hasta que la merluza esté hecha."
+    ],
+    "nutrition": {
+      "calories": 575,
+      "protein": 42,
+      "carbs": 40,
+      "fat": 22,
+      "fiber": 5
+    },
+    "storage": {
+      "days": 3,
+      "instructions": "Tupper en nevera 3 días. Calentar en microondas 90 seg.",
+      "freezable": false
+    },
+    "tags": ["merluza", "patata", "horno", "batch-friendly"],
+    "batchMultiplier": 5,
+    "batchNotes": "Usar 2 bandejas de horno a la vez. 5 lomos de merluza. Distribuir verduras y hornear todo junto.",
+    "source": "base"
+  },
+  {
+    "id": "cena-huevo-verduras-001",
+    "name": "Tortilla de 4 huevos con champiñones y espinacas",
+    "category": "cena",
+    "difficulty": "fácil",
+    "prepTime": 10,
+    "cookTime": 15,
+    "servings": 1,
+    "ingredients": [
+      { "name": "huevos", "amount": 4, "unit": "unidad" },
+      { "name": "champiñones", "amount": 200, "unit": "g" },
+      { "name": "espinacas frescas", "amount": 100, "unit": "g" },
+      { "name": "queso fresco light", "amount": 60, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 15, "unit": "ml" },
+      { "name": "ajo, sal, nuez moscada", "amount": 5, "unit": "g" }
+    ],
+    "steps": [
+      "Limpiar y laminar los champiñones.",
+      "Saltear los champiñones con ajo y sal en aceite 8 min.",
+      "Añadir las espinacas y saltear 2 min más.",
+      "Batir los huevos con sal y nuez moscada.",
+      "Hacer la tortilla con el relleno de verduras y el queso desmenuzado."
+    ],
+    "nutrition": {
+      "calories": 560,
+      "protein": 38,
+      "carbs": 8,
+      "fat": 40,
+      "fiber": 4
+    },
+    "storage": {
+      "days": 3,
+      "instructions": "La tortilla en tupper 3 días. Los champiñones salteados en tupper 5 días.",
+      "freezable": false
+    },
+    "tags": ["huevos", "champiñones", "tortilla", "batch-friendly", "sin-carbos"],
+    "batchMultiplier": 3,
+    "batchNotes": "Preparar el salteado de champiñones en batch. Hacer la tortilla al momento (10 min).",
+    "source": "base"
+  },
+  {
+    "id": "cena-pavo-quinoa-001",
+    "name": "Pavo a la plancha con quinoa y rúcula",
+    "category": "cena",
+    "difficulty": "fácil",
+    "prepTime": 10,
+    "cookTime": 20,
+    "servings": 1,
+    "ingredients": [
+      { "name": "pechuga de pavo en filete", "amount": 200, "unit": "g" },
+      { "name": "quinoa", "amount": 80, "unit": "g" },
+      { "name": "rúcula", "amount": 80, "unit": "g" },
+      { "name": "aguacate", "amount": 80, "unit": "g" },
+      { "name": "cherry tomatoes", "amount": 100, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 20, "unit": "ml" },
+      { "name": "limón, sal, mostaza", "amount": 8, "unit": "g" }
+    ],
+    "steps": [
+      "Cocer la quinoa 15 min en agua (doble volumen).",
+      "Asar el pavo a la plancha con sal 5-6 min por lado.",
+      "Preparar la ensalada: rúcula, aguacate en dados, cherry cortados.",
+      "Aliñar con aceite, limón y mostaza.",
+      "Servir el pavo sobre la quinoa con la ensalada al lado."
+    ],
+    "nutrition": {
+      "calories": 590,
+      "protein": 48,
+      "carbs": 44,
+      "fat": 26,
+      "fiber": 8
+    },
+    "storage": {
+      "days": 3,
+      "instructions": "Quinoa y pavo en tupper 4 días. Ensalada al momento.",
+      "freezable": false
+    },
+    "tags": ["pavo", "quinoa", "rúcula", "batch-friendly", "alto-proteína"],
+    "batchMultiplier": 5,
+    "batchNotes": "Cocer 400g quinoa. Planchar 1kg filete pavo. Guardar sin la ensalada que se prepara al momento.",
+    "source": "base"
+  },
+  {
+    "id": "cena-tofu-verduras-001",
+    "name": "Tofu salteado con verduras y arroz integral",
+    "category": "cena",
+    "difficulty": "medio",
+    "prepTime": 15,
+    "cookTime": 20,
+    "servings": 1,
+    "ingredients": [
+      { "name": "tofu firme", "amount": 250, "unit": "g" },
+      { "name": "arroz integral", "amount": 80, "unit": "g" },
+      { "name": "pimiento rojo", "amount": 100, "unit": "g" },
+      { "name": "zanahoria", "amount": 80, "unit": "g" },
+      { "name": "brócoli", "amount": 150, "unit": "g" },
+      { "name": "salsa de soja baja en sal", "amount": 20, "unit": "ml" },
+      { "name": "aceite de sésamo", "amount": 10, "unit": "ml" },
+      { "name": "jengibre, ajo", "amount": 8, "unit": "g" }
+    ],
+    "steps": [
+      "Cocer arroz integral 30-35 min.",
+      "Cortar el tofu en dados y marinar 10 min con soja y jengibre.",
+      "Dorar el tofu en sartén con aceite de sésamo 8 min dando la vuelta.",
+      "Retirar el tofu y saltear las verduras 5-7 min.",
+      "Añadir el tofu y el arroz, mezclar con la soja restante."
+    ],
+    "nutrition": {
+      "calories": 570,
+      "protein": 28,
+      "carbs": 62,
+      "fat": 22,
+      "fiber": 10
+    },
+    "storage": {
+      "days": 4,
+      "instructions": "Tupper en nevera 4 días. Calentar en sartén para mantener textura del tofu.",
+      "freezable": false
+    },
+    "tags": ["tofu", "verduras", "vegano", "batch-friendly", "arroz integral"],
+    "batchMultiplier": 5,
+    "batchNotes": "Marinar y dorar 1,25kg tofu. Saltear verduras en olla grande. Cocer 400g arroz. Dividir en tuppers.",
+    "source": "base"
+  },
+  {
+    "id": "cena-bacalao-garbanzos-001",
+    "name": "Bacalao con garbanzos y espinacas",
+    "category": "cena",
+    "difficulty": "fácil",
+    "prepTime": 10,
+    "cookTime": 20,
+    "servings": 1,
+    "ingredients": [
+      { "name": "lomo de bacalao fresco", "amount": 220, "unit": "g" },
+      { "name": "garbanzos cocidos", "amount": 200, "unit": "g" },
+      { "name": "espinacas congeladas", "amount": 150, "unit": "g" },
+      { "name": "tomate triturado", "amount": 80, "unit": "g" },
+      { "name": "aceite de oliva virgen extra", "amount": 20, "unit": "ml" },
+      { "name": "ajo, pimentón, comino, sal", "amount": 8, "unit": "g" }
+    ],
+    "steps": [
+      "Sofreír ajo picado en aceite 1 min.",
+      "Añadir pimentón, comino y tomate. Cocinar 5 min.",
+      "Incorporar espinacas descongeladas y garbanzos. Mezclar 3 min.",
+      "Colocar el bacalao encima, tapar y cocinar 10 min a fuego medio.",
+      "Servir el bacalao sobre los garbanzos con espinacas."
+    ],
+    "nutrition": {
+      "calories": 575,
+      "protein": 52,
+      "carbs": 35,
+      "fat": 22,
+      "fiber": 12
+    },
+    "storage": {
+      "days": 3,
+      "instructions": "Tupper en nevera 3 días. Calentar a fuego suave para no resecar el bacalao.",
+      "freezable": false
+    },
+    "tags": ["bacalao", "garbanzos", "espinacas", "batch-friendly", "omega-3"],
+    "batchMultiplier": 5,
+    "batchNotes": "Preparar la base de garbanzos y espinacas en lote grande. Añadir el bacalao al calentar.",
+    "source": "base"
+  }
+]
