@@ -1,64 +1,58 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import { IngredientItem } from './IngredientItem';
 import type { ShoppingCategory, ShoppingCategoryName } from '../../types';
-import { clsx } from 'clsx';
 
 interface CategoryGroupProps {
   category: ShoppingCategory;
   onToggleItem: (categoryName: ShoppingCategoryName, itemName: string) => void;
 }
 
-const CATEGORY_ICONS: Record<string, string> = {
-  'Proteínas': '🥩',
-  'Carbohidratos': '🌾',
-  'Verduras y Hortalizas': '🥦',
-  'Frutas': '🍌',
-  'Lácteos y Huevos': '🥛',
-  'Grasas y Aceites': '🫒',
-  'Otros': '🛒',
+const CATEGORY_META: Record<string, { glyph: string; color: string }> = {
+  'Proteínas':            { glyph: '🥩', color: 'var(--cobalt)' },
+  'Carbohidratos':        { glyph: '🌾', color: 'var(--lime)' },
+  'Verduras y Hortalizas':{ glyph: '🥦', color: 'var(--lime)' },
+  'Frutas':               { glyph: '🍌', color: 'var(--orange)' },
+  'Lácteos y Huevos':     { glyph: '🥛', color: 'var(--cobalt)' },
+  'Grasas y Aceites':     { glyph: '🫒', color: 'var(--amber)' },
+  'Otros':                { glyph: '📦', color: 'var(--muted)' },
 };
 
 export function CategoryGroup({ category, onToggleItem }: CategoryGroupProps) {
-  const [expanded, setExpanded] = useState(true);
-  const totalItems = category.items.length;
-  const purchasedItems = category.items.filter(i => i.purchased).length;
-  const allDone = totalItems === purchasedItems;
+  const [open, setOpen] = useState(true);
+  const total = category.items.length;
+  const checked = category.items.filter(i => i.purchased).length;
+  const meta = CATEGORY_META[category.category] ?? { glyph: '📦', color: 'var(--muted)' };
 
   return (
-    <div className="bg-card dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+    <div>
       <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 p-4 touch-manipulation"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          all: 'unset' as any, width: '100%', boxSizing: 'border-box' as const, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0',
+        }}
       >
-        <span className="text-xl">{CATEGORY_ICONS[category.category] ?? '📦'}</span>
-        <div className="flex-1 text-left">
-          <p className={clsx(
-            'font-bold text-sm',
-            allDone ? 'text-success' : 'text-gray-800 dark:text-white'
-          )}>
-            {category.category}
-          </p>
-          <p className="text-xs text-gray-400">{purchasedItems}/{totalItems} productos</p>
+        <div style={{
+          width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+          background: `color-mix(in srgb, ${meta.color} 15%, transparent)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 16,
+        }}>
+          {meta.glyph}
         </div>
-
-        {/* Progress mini */}
-        <div className="flex items-center gap-2">
-          {allDone && (
-            <span className="text-xs font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">
-              ✓ Listo
-            </span>
-          )}
-          {expanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+        <div style={{ flex: 1 }}>
+          <div className="display" style={{ fontSize: 15, letterSpacing: '-0.01em' }}>{category.category}</div>
         </div>
+        <span className="num" style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{checked}/{total}</span>
       </button>
 
-      {expanded && (
-        <div className="px-4 pb-2 divide-y divide-gray-50 dark:divide-gray-800">
-          {category.items.map(item => (
+      {open && (
+        <div style={{ marginTop: 4, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 14, overflow: 'hidden' }}>
+          {category.items.map((item, ii) => (
             <IngredientItem
               key={item.name}
               item={item}
+              isFirst={ii === 0}
               onToggle={() => onToggleItem(category.category, item.name)}
             />
           ))}

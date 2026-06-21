@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { GEMINI_SYSTEM_PROMPT, generateMenuPrompt } from '../utils/prompts';
+import { GEMINI_SYSTEM_PROMPT, generateMenuPrompt, buildFullSelection } from '../utils/prompts';
 import { validateMenuResponse, sanitizeMenuResponse } from '../utils/validators';
-import type { GeneratedMenuResponse } from '../types';
+import type { GeneratedMenuResponse, MealSelection } from '../types';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
 
@@ -25,7 +25,8 @@ export class GeminiService {
   async generateWeeklyMenu(
     excludeRecipeNames: string[],
     weekNumber: number,
-    year: number
+    year: number,
+    selection: MealSelection = buildFullSelection()
   ): Promise<GeneratedMenuResponse> {
     const genAI = this.getGenAI();
     const model = genAI.getGenerativeModel({
@@ -38,7 +39,7 @@ export class GeminiService {
       systemInstruction: GEMINI_SYSTEM_PROMPT,
     });
 
-    const prompt = generateMenuPrompt(excludeRecipeNames, weekNumber, year);
+    const prompt = generateMenuPrompt(excludeRecipeNames, weekNumber, year, selection);
 
     let lastError: Error | null = null;
 
@@ -54,17 +55,17 @@ export class GeminiService {
           throw new Error('Gemini no devolvió JSON válido');
         }
 
-        const { valid, errors } = validateMenuResponse(parsed);
+        const { valid, errors } = validateMenuResponse(parsed, selection);
         if (!valid) {
           console.warn('[Gemini] Respuesta con errores de validación:', errors);
           if (attempt === 3) {
             // En el tercer intento, usar lo que tenemos aunque no sea perfecto
-            return sanitizeMenuResponse(parsed);
+            return sanitizeMenuResponse(parsed, selection);
           }
           continue;
         }
 
-        return sanitizeMenuResponse(parsed);
+        return sanitizeMenuResponse(parsed, selection);
       } catch (error) {
         lastError = error as Error;
         console.error(`[Gemini] Intento ${attempt} fallido:`, error);

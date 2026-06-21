@@ -6,7 +6,8 @@ import { storageService } from '../services/storageService';
 import { STORAGE_KEYS } from '../utils/storageKeys';
 import { getCurrentWeekAndYear } from '../utils/dateUtils';
 import { useHistoryRotation } from './useHistoryRotation';
-import type { BatchCookingGuide } from '../types';
+import { buildFullSelection } from '../utils/prompts';
+import type { BatchCookingGuide, MealSelection } from '../types';
 
 const STEPS = [
   'Consultando inteligencia artificial...',
@@ -28,7 +29,7 @@ export function useMenuGeneration() {
 
   const { getExcludeNames, addMenuToHistory } = useHistoryRotation();
 
-  async function generateMenu() {
+  async function generateMenu(selection: MealSelection = buildFullSelection()) {
     setGenerating(true, STEPS[0], 0);
     setError(null);
 
@@ -44,11 +45,12 @@ export function useMenuGeneration() {
           const aiResponse = await geminiService.generateWeeklyMenu(
             excludeNames,
             weekNumber,
-            year
+            year,
+            selection
           );
 
           setGenerating(true, STEPS[1], 40);
-          weeklyMenu = menuService.createWeeklyMenuFromAI(aiResponse, weekNumber, year);
+          weeklyMenu = menuService.createWeeklyMenuFromAI(aiResponse, weekNumber, year, selection);
 
           // Extract batch guide from AI response
           const guide: BatchCookingGuide = {
@@ -64,12 +66,12 @@ export function useMenuGeneration() {
           console.warn('[MenuGen] Gemini falló, usando banco base:', geminiError);
           setGenerating(true, 'Gemini no disponible, usando banco de recetas...', 20);
           await new Promise(r => setTimeout(r, 1000));
-          weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year);
+          weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year, selection);
         }
       } else {
         setGenerating(true, 'Usando banco de recetas base (sin API key Gemini)...', 20);
         await new Promise(r => setTimeout(r, 800));
-        weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year);
+        weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year, selection);
       }
 
       setGenerating(true, STEPS[2], 60);

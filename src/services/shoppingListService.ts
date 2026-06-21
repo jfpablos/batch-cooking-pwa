@@ -147,6 +147,7 @@ export const shoppingListService = {
       ];
 
       for (const { mealData } of mealEntries) {
+        if (mealData.isSkipped) continue;
         const recipe = recipeMap.get(mealData.recipeName);
         if (!recipe) continue;
 
@@ -171,12 +172,20 @@ export const shoppingListService = {
         items: categoryMap.get(cat)!.sort((a, b) => a.name.localeCompare(b.name)),
       }));
 
+    const plannedMealCount = menu.days.reduce((acc, d) => {
+      let n = 0;
+      for (const m of [d.meals.desayuno, d.meals.preEntreno, d.meals.principal, d.meals.postEntreno, d.meals.cena]) {
+        if (!m.isSkipped) n++;
+      }
+      return acc + n;
+    }, 0);
+
     return {
       id: `shopping-${menu.id}-${Date.now()}`,
       menuId: menu.id,
       generatedAt: new Date().toISOString(),
       categories,
-      notes: `Lista de la compra para ${menu.days.length} días. Cantidades para 1 persona.`,
+      notes: `Lista de la compra para ${plannedMealCount} comida(s). Cantidades para 1 persona.`,
     };
   },
 

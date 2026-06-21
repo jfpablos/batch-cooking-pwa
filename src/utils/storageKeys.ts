@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   LAST_GEN_DATE: 'batchfit:last_gen_date',
   YT_VIDEOS_CACHE: 'batchfit:yt_videos',
   SHOPPING_CHECKED: 'batchfit:shopping_checked',
+  MEAL_SELECTION: 'batchfit:meal_selection',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

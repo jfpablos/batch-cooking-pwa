@@ -1,139 +1,283 @@
-import { Zap, User, Flame, Beef, Wheat, Droplets, RefreshCw, AlertCircle } from 'lucide-react';
-import { Button } from '../Common/Button';
-import { Card } from '../Common/Card';
-import { LoadingState } from './LoadingState';
+import { useEffect, useState } from 'react';
+import { Sparkles, Calendar, RotateCcw, Check, History, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useMenuGeneration } from '../../hooks/useMenuGeneration';
 import { formatDateTime, getCurrentWeekAndYear } from '../../utils/dateUtils';
 import { storageService } from '../../services/storageService';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { geminiService } from '../../services/geminiService';
+import { buildFullSelection, countSelected } from '../../utils/prompts';
+import { MealSelector } from './MealSelector';
+import type { MealSelection } from '../../types';
 
-const MACRO_GOALS = [
-  { icon: Flame, label: 'Calorías', value: '3.290 kcal', color: 'text-primary', bg: 'bg-primary/10' },
-  { icon: Beef, label: 'Proteína', value: '165 g', color: 'text-blue-600', bg: 'bg-blue-50' },
-  { icon: Wheat, label: 'Carbos', value: '454 g', color: 'text-amber-600', bg: 'bg-amber-50' },
-  { icon: Droplets, label: 'Grasa', value: '91 g', color: 'text-green-600', bg: 'bg-green-50' },
+const GEN_STEPS = [
+  { l: 'Analizando tus targets',       s: 'Mifflin-St Jeor · 3.290 kcal · L–V' },
+  { l: 'Buscando recetas variadas',     s: '+ histórico de 4 semanas' },
+  { l: 'Equilibrando macros por comida',s: '5 tomas · ventana anabólica' },
+  { l: 'Generando lista de la compra', s: 'Agrupando ingredientes ×5' },
 ];
 
 export function MenuGeneratorScreen() {
-  const { isGenerating, error, currentMenu } = useAppStore();
+  const { isGenerating, generationProgress, error, currentMenu, menuHistory } = useAppStore();
   const { generateMenu } = useMenuGeneration();
   const { weekNumber, year } = getCurrentWeekAndYear();
   const lastGenDate = storageService.get<string>(STORAGE_KEYS.LAST_GEN_DATE);
   const geminiOk = geminiService.isConfigured();
+  const [done, setDone] = useState(false);
 
-  if (isGenerating) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <LoadingState />
-      </div>
-    );
-  }
+  const [selection, setSelection] = useState<MealSelection>(() => {
+    const stored = storageService.get<MealSelection>(STORAGE_KEYS.MEAL_SELECTION);
+    return stored ?? buildFullSelection();
+  });
+  const selectedCount = countSelected(selection);
+  const allSelected = selectedCount === 25;
+
+  const updateSelection = (next: MealSelection) => {
+    setSelection(next);
+    storageService.set(STORAGE_KEYS.MEAL_SELECTION, next);
+  };
+
+  // track when generation finishes
+  useEffect(() => {
+    if (!isGenerating && currentMenu) setDone(true);
+  }, [isGenerating, currentMenu]);
+
+  // derive active step index from progress
+  const stepIdx = Math.min(Math.floor((generationProgress / 100) * GEN_STEPS.length), GEN_STEPS.length - 1);
+
+  const handleGenerate = () => {
+    setDone(false);
+    generateMenu(selection);
+  };
+
+  const buttonLabel = currentMenu
+    ? (allSelected ? 'Regenerar semana' : `Regenerar (${selectedCount} comidas)`)
+    : (allSelected ? 'Generar semana' : `Generar ${selectedCount} comida${selectedCount === 1 ? '' : 's'}`);
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="p-4 space-y-5 max-w-lg mx-auto pb-6">
+    <div
+      className="h-full overflow-y-auto fade-in"
+      style={{ paddingTop: 'var(--safe-area-top)' }}
+    >
+      <div style={{ padding: '12px 18px 28px' }}>
 
-        {/* Hero */}
-        <div className="text-center pt-2 pb-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-3 shadow-lg shadow-primary/30">
-            <Zap size={32} className="text-white" />
+        {/* ── Greet header ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 4px 18px' }}>
+          <div>
+            <div className="eyebrow">{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}</div>
+            <div className="display" style={{ fontSize: 28, marginTop: 4 }}>
+              Tu semana de<br />
+              <span style={{ color: 'var(--orange)' }}>combustible.</span>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Menú Semanal
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-            Semana {weekNumber} · {year} · Lunes a Viernes
-          </p>
+          <div style={{
+            width: 44, height: 44, borderRadius: 14,
+            background: 'var(--ink)', color: 'var(--cream)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 18,
+            letterSpacing: '-0.02em', flexShrink: 0,
+          }}>
+            B
+          </div>
         </div>
 
-        {/* Perfil nutricional */}
-        <Card>
-          <div className="flex items-center gap-2 mb-3">
-            <User size={18} className="text-secondary" />
-            <h2 className="font-bold text-gray-800 dark:text-white text-sm">Tu perfil nutricional</h2>
+        {/* ── Hero dark card ── */}
+        <div style={{
+          position: 'relative', borderRadius: 22, overflow: 'hidden',
+          background: 'linear-gradient(160deg, var(--char) 0%, var(--char-2) 60%, #26200E 100%)',
+          color: 'var(--cream)', padding: '22px 22px 24px',
+          boxShadow: '0 20px 40px -20px rgba(20,15,5,0.4)',
+        }}>
+          <div className="grain" />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="eyebrow" style={{ color: 'var(--orange)' }}>Semana {weekNumber} · {year}</div>
+            <span className="chip" style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--cream)', borderColor: 'rgba(255,255,255,0.12)' }}>
+              <Calendar size={11} strokeWidth={2} /> 5 días
+            </span>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            82,5 kg · Crossfit 5 días/semana · Rendimiento deportivo
+
+          <div className="display-tight" style={{ fontSize: 32, marginTop: 14 }}>
+            Genera tu próxima<br />
+            <span style={{ color: 'var(--orange)', fontStyle: 'italic', fontWeight: 800 }}>semana de recetas</span>
+          </div>
+
+          <p style={{ marginTop: 12, color: 'rgba(245,243,238,0.72)', fontSize: 13.5, lineHeight: 1.5, maxWidth: 320 }}>
+            25 comidas calibradas para 82,5 kg · crossfit · sin repetir las últimas 4 semanas.
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            {MACRO_GOALS.map(({ icon: Icon, label, value, color, bg }) => (
-              <div key={label} className={`flex items-center gap-2.5 p-2.5 rounded-xl ${bg}`}>
-                <Icon size={18} className={color} />
-                <div>
-                  <p className="text-xs text-gray-500">{label}</p>
-                  <p className={`text-sm font-bold ${color}`}>{value}</p>
-                </div>
+
+          {/* Targets */}
+          <div style={{
+            marginTop: 18, display: 'flex', justifyContent: 'space-between',
+            padding: 14, borderRadius: 14,
+            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+          }}>
+            {[
+              { k: 'kcal', v: '3.290', d: '/día',  c: 'var(--orange)' },
+              { k: 'P',    v: '165',   d: 'g',     c: 'var(--cobalt)' },
+              { k: 'C',    v: '454',   d: 'g',     c: 'var(--lime)' },
+              { k: 'F',    v: '91',    d: 'g',     c: 'var(--amber)' },
+            ].map((m, i) => (
+              <div key={m.k} style={{
+                display: 'flex', flexDirection: 'column', gap: 4, flex: 1,
+                borderLeft: i ? '1px solid rgba(255,255,255,0.08)' : 'none',
+                paddingLeft: i ? 10 : 0,
+              }}>
+                <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '0.16em', color: m.c, textTransform: 'uppercase' as const }}>{m.k}</span>
+                <span className="num" style={{ fontFamily: 'var(--ff-display)', fontSize: 21, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                  {m.v}<span style={{ fontSize: 10, opacity: 0.5, marginLeft: 2 }}>{m.d}</span>
+                </span>
               </div>
             ))}
           </div>
-        </Card>
 
-        {/* Estado Gemini */}
-        <Card padding="sm">
-          <div className="flex items-center gap-2">
-            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${geminiOk ? 'bg-success' : 'bg-amber-400'}`} />
-            <p className="text-sm text-gray-700 dark:text-gray-300">
-              {geminiOk
-                ? 'Gemini AI configurado — menús con IA'
-                : 'Sin API key Gemini — usará banco de recetas base (25 recetas)'}
-            </p>
+          {/* Gemini status */}
+          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'rgba(245,243,238,0.55)' }}>
+            <span style={{ width: 7, height: 7, borderRadius: 999, background: geminiOk ? '#7FCB4A' : '#F59E0B', flexShrink: 0 }} />
+            {geminiOk ? '⚡ Gemini 2.5 Flash · IA activa' : 'Banco de recetas base · 25 recetas'}
           </div>
-        </Card>
 
-        {/* Error */}
-        {error && (
-          <div className="flex items-start gap-3 p-3 bg-error/10 border border-error/30 rounded-xl">
-            <AlertCircle size={18} className="text-error flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-error">{error}</p>
-          </div>
-        )}
-
-        {/* Último menú generado */}
-        {currentMenu && (
-          <Card padding="sm">
-            <p className="text-xs text-gray-500">Último menú generado</p>
-            <p className="text-sm font-semibold text-gray-800 dark:text-white">
-              Semana {currentMenu.weekNumber} · {currentMenu.year}
-            </p>
-            {lastGenDate && (
-              <p className="text-xs text-gray-400">{formatDateTime(lastGenDate)}</p>
+          {/* Generate button */}
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating || selectedCount === 0}
+            style={{
+              marginTop: 18, width: '100%', minHeight: 56,
+              background: isGenerating
+                ? 'rgba(255,107,53,0.15)'
+                : selectedCount === 0
+                  ? 'rgba(255,107,53,0.15)'
+                  : 'var(--orange)',
+              border: 'none', borderRadius: 14,
+              color: isGenerating || selectedCount === 0 ? 'var(--orange)' : '#fff',
+              fontFamily: 'var(--ff-display)', fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              cursor: isGenerating ? 'wait' : selectedCount === 0 ? 'not-allowed' : 'pointer',
+              opacity: selectedCount === 0 ? 0.6 : 1,
+              transition: 'all .25s',
+            }}
+          >
+            {isGenerating ? (
+              <>
+                <span style={{
+                  width: 18, height: 18, borderRadius: '50%',
+                  border: '2.4px solid rgba(255,107,53,0.25)', borderTopColor: 'var(--orange)',
+                  animation: 'spin 0.8s linear infinite', display: 'inline-block',
+                }} />
+                Generando…
+              </>
+            ) : done ? (
+              <><Check size={18} strokeWidth={2.4} /> Menú listo · ver semana</>
+            ) : selectedCount === 0 ? (
+              <>Selecciona al menos una comida</>
+            ) : (
+              <><Sparkles size={18} strokeWidth={2} /> {buttonLabel}</>
             )}
-          </Card>
-        )}
-
-        {/* Botón principal */}
-        <Button
-          variant="primary"
-          size="lg"
-          fullWidth
-          onClick={generateMenu}
-          icon={currentMenu ? <RefreshCw size={22} /> : <Zap size={22} />}
-        >
-          {currentMenu ? 'Regenerar menú semanal' : 'Generar menú semanal'}
-        </Button>
-
-        {/* Info */}
-        <div className="text-center space-y-1">
-          <p className="text-xs text-gray-400">
-            Se generan 5 días (L-V) con 5 comidas/día
-          </p>
-          <p className="text-xs text-gray-400">
-            Sistema anti-repetición activo (últimas 4 semanas)
-          </p>
+          </button>
         </div>
 
-        {/* Cómo funciona */}
-        <Card>
-          <h3 className="font-bold text-sm text-gray-800 dark:text-white mb-2">¿Cómo funciona?</h3>
-          <ol className="space-y-1.5 text-sm text-gray-600 dark:text-gray-400">
-            <li className="flex gap-2"><span className="text-primary font-bold">1.</span> Pulsa "Generar menú" los fines de semana</li>
-            <li className="flex gap-2"><span className="text-primary font-bold">2.</span> Revisa las recetas en "Mi Menú"</li>
-            <li className="flex gap-2"><span className="text-primary font-bold">3.</span> Haz la compra con la lista generada</li>
-            <li className="flex gap-2"><span className="text-primary font-bold">4.</span> Sigue la Guía Batch el domingo</li>
-          </ol>
-        </Card>
+        {/* ── Day/meal selector ── */}
+        <MealSelector selection={selection} onChange={updateSelection} />
+
+        {/* ── Generation progress detail ── */}
+        {isGenerating && (
+          <div className="fade-in" style={{ marginTop: 14, padding: '14px 16px', borderRadius: 14, background: 'var(--card)', border: '1px solid var(--line)' }}>
+            {GEN_STEPS.map((s, i) => {
+              const state = i < stepIdx ? 'done' : i === stepIdx ? 'now' : 'todo';
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0',
+                  borderTop: i ? '1px dashed var(--line-2)' : 'none',
+                }}>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                    background: state === 'done' ? 'var(--orange)' : state === 'now' ? 'rgba(255,107,53,0.12)' : 'var(--line)',
+                    color: state === 'done' ? '#fff' : 'var(--orange)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {state === 'done' ? <Check size={12} strokeWidth={3} /> :
+                     state === 'now' ? <span style={{ width: 8, height: 8, borderRadius: '50%', border: '2px solid currentColor', borderTopColor: 'transparent', animation: 'spin .8s linear infinite', display: 'inline-block' }} /> :
+                     <span style={{ width: 4, height: 4, borderRadius: 999, background: 'var(--muted-2)', display: 'block' }} />}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: state === 'todo' ? 'var(--muted)' : 'var(--ink)' }}>{s.l}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{s.s}</div>
+                  </div>
+                </div>
+              );
+            })}
+            {/* progress bar */}
+            <div style={{ marginTop: 12 }}>
+              <div className="bar"><i style={{ width: generationProgress + '%' }} /></div>
+              <div style={{ marginTop: 6, textAlign: 'right', fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--ff-mono)' }} className="num">{generationProgress}%</div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Error ── */}
+        {error && !isGenerating && (
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 14, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <AlertCircle size={16} style={{ color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{error}</p>
+          </div>
+        )}
+
+        {/* ── Info cards ── */}
+        <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 14 }}>
+            <div className="eyebrow" style={{ fontSize: 10 }}>Perfil</div>
+            <div style={{ marginTop: 8, fontFamily: 'var(--ff-display)', fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>
+              Crossfit · 5 d/sem
+            </div>
+            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>82,5 kg · L–V</div>
+          </div>
+          <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 14 }}>
+            <div className="eyebrow" style={{ fontSize: 10 }}>Anti-repetición</div>
+            <div style={{ marginTop: 8, fontFamily: 'var(--ff-display)', fontSize: 16, fontWeight: 700 }}>
+              <span className="num">{menuHistory.reduce((acc, w) => acc + w.recipeNames.length, 0)}</span>
+              {' '}<span style={{ color: 'var(--muted)' }}>vetadas</span>
+            </div>
+            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>Últimas 4 semanas</div>
+          </div>
+        </div>
+
+        {/* ── Last menu link ── */}
+        {currentMenu && lastGenDate && (
+          <div style={{
+            marginTop: 10, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 14, padding: 14,
+            display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--cream-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <History size={18} strokeWidth={1.8} style={{ color: 'var(--ink-2)' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600 }}>Menú actual · S{currentMenu.weekNumber}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>Generado {formatDateTime(lastGenDate)}</div>
+            </div>
+            <RotateCcw size={15} strokeWidth={1.8} style={{ color: 'var(--muted)' }} />
+          </div>
+        )}
+
+        {/* ── How it works ── */}
+        <div style={{ marginTop: 18, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 16 }}>
+          <div className="eyebrow" style={{ fontSize: 10, marginBottom: 10 }}>Cómo funciona</div>
+          {[
+            'Pulsa "Generar semana" el domingo por la tarde',
+            'Revisa las recetas día a día en "Mi menú"',
+            'Haz la compra con la lista agrupada',
+            'Cocina todo el domingo siguiendo la Guía Batch',
+          ].map((text, i) => (
+            <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', paddingTop: i ? 10 : 0, borderTop: i ? '1px dashed var(--line-2)' : 'none' }}>
+              <span style={{
+                width: 22, height: 22, borderRadius: 999, background: 'var(--orange-soft)', color: 'var(--orange-2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 12, flexShrink: 0,
+              }} className="num">{i + 1}</span>
+              <span style={{ fontSize: 13.5, lineHeight: 1.5, paddingTop: 2 }}>{text}</span>
+            </div>
+          ))}
+        </div>
+
       </div>
     </div>
   );

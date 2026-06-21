@@ -2,22 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design tokens ─────────────────────────────────────────── */
 :root {
-  --primary: #FF6B35;
-  --secondary: #004E89;
-  --success: #06A77D;
-  --bg: #F8F9FA;
-  --card: #FFFFFF;
-  --bottom-nav-height: 64px;
-  --header-height: 56px;
-  --safe-area-top: env(safe-area-inset-top, 0px);
-  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+  /* Text */
+  --ink:        #2A2318;
+  --ink-2:      #453A2C;
+  --muted:      #7A6E61;
+  --muted-2:    #A89E93;
+
+  /* Lines */
+  --line:       #EAE7E1;
+  --line-2:     #DDD9D2;
+
+  /* Backgrounds */
+  --cream:      #FAF9F7;
+  --cream-2:    #F3F0EA;
+  --card:       #FFFFFF;
+
+  /* Brand */
+  --orange:     #FF6B35;
+  --orange-2:   #D4531C;
+  --orange-soft:#FFF0E9;
+
+  /* Hero dark */
+  --char:       #322718;
+  --char-2:     #3E3020;
+
+  /* Macro accents */
+  --cobalt:     #2E5FA8;   /* protein  */
+  --lime:       #5EA832;   /* carbs    */
+  --amber:      #C4860A;   /* fat      */
+  --plum:       #7E3A7A;   /* dinner   */
+  --teal:       #1F8A80;   /* post-WO  */
+
+  /* Meal stripe colors (same as accent but as vars for direct use) */
+  --stripe-desayuno:   var(--amber);
+  --stripe-pre:        var(--lime);
+  --stripe-principal:  var(--orange);
+  --stripe-post:       var(--teal);
+  --stripe-cena:       var(--plum);
+
+  /* Font stacks */
+  --ff-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --ff-body:    'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --ff-mono:    'JetBrains Mono', ui-monospace, monospace;
+
+  /* Layout */
+  --bottom-nav-height:  64px;
+  --safe-area-top:      env(safe-area-inset-top, 0px);
+  --safe-area-bottom:   env(safe-area-inset-bottom, 0px);
 }
 
-* {
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
+/* ─── Reset ──────────────────────────────────────────────────── */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 html {
   font-size: 16px;
@@ -26,12 +64,13 @@ html {
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background-color: var(--bg);
-  color: #1a1a1a;
+  font-family: var(--ff-body);
+  background-color: var(--cream);
+  color: var(--ink);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "ss01", "cv11";
 }
 
 #root {
@@ -40,84 +79,148 @@ body {
   flex-direction: column;
 }
 
-/* Safe area helpers */
-.safe-top {
-  padding-top: var(--safe-area-top);
+button, a, [role="button"] { touch-action: manipulation; }
+
+/* ─── Typography helpers ─────────────────────────────────────── */
+.display {
+  font-family: var(--ff-display);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-weight: 700;
 }
 
-.safe-bottom {
-  padding-bottom: var(--safe-area-bottom);
+.display-tight {
+  font-family: var(--ff-display);
+  letter-spacing: -0.025em;
+  line-height: 0.95;
+  font-weight: 700;
 }
 
-/* Touch optimizations */
-button, a, [role="button"] {
-  touch-action: manipulation;
+.eyebrow {
+  font-family: var(--ff-display);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
-/* Smooth scroll */
-.scroll-smooth {
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+/* Tabular numerics for stats */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
-/* Loading skeleton animation */
+/* ─── Component helpers ──────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: var(--cream-2);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+}
+
+/* Macro color dot */
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Meal-type color stripes */
+.stripe {
+  width: 4px;
+  align-self: stretch;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.stripe-desayuno  { background: var(--amber); }
+.stripe-pre       { background: var(--lime); }
+.stripe-principal { background: var(--orange); }
+.stripe-post      { background: var(--teal); }
+.stripe-cena      { background: var(--plum); }
+
+/* Progress bar */
+.bar {
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--orange);
+  transition: width 0.3s ease;
+}
+
+/* Grain texture overlay */
+.grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.45;
+  mix-blend-mode: overlay;
+  background-image:
+    radial-gradient(rgba(255,255,255,.07) 1px, transparent 1px),
+    radial-gradient(rgba(0,0,0,.05) 1px, transparent 1px);
+  background-size: 3px 3px, 5px 5px;
+}
+
+/* ─── Animations ─────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.fade-in { animation: fade-in 0.3s ease both; }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: none; }
+}
+.slide-up { animation: slide-up 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* ─── Layout helpers ─────────────────────────────────────────── */
+.safe-top    { padding-top: var(--safe-area-top); }
+.safe-bottom { padding-bottom: var(--safe-area-bottom); }
+
+.content-with-nav {
+  padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom));
+}
+
+/* ─── Scrollbars ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 0; height: 0; }
+
+/* ─── Loading skeleton ───────────────────────────────────────── */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 }
-
 .skeleton {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+  background: linear-gradient(90deg, var(--line) 25%, var(--cream-2) 50%, var(--line) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 4px;
 }
 
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f0f0f;
-    --card: #1a1a1a;
-  }
-
-  body {
-    background-color: #0f0f0f;
-    color: #f1f5f9;
-  }
-
-  .skeleton {
-    background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
-    background-size: 200% 100%;
-  }
+/* ─── Focus ring ─────────────────────────────────────────────── */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 2px;
-}
-
-/* Modal backdrop */
-.modal-backdrop {
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
-/* Bottom nav height compensation */
-.content-with-nav {
-  padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom));
-}
-
-.content-with-nav-header {
-  padding-top: calc(var(--header-height) + var(--safe-area-top));
-  padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom));
-}

@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Search, Youtube, RefreshCw } from 'lucide-react';
+import { Search, Play, X, RefreshCw } from 'lucide-react';
 import { VideoModal } from '../Common/VideoModal';
-import { VideoGridSkeleton } from '../Common/Loading';
-import { Button } from '../Common/Button';
 import { useAppStore } from '../../store/useAppStore';
 import { youtubeService } from '../../services/youtubeService';
 import type { YouTubeVideo } from '../../types';
+
+// Tones for video thumbnail placeholders when no thumbnail available
+const TONES = [
+  'var(--orange)', 'var(--orange-2)', 'var(--amber)', 'var(--char)',
+  'var(--cobalt)', 'var(--lime)', 'var(--amber)', 'var(--plum)',
+];
 
 export function VideosScreen() {
   const { youtubeVideos, setYoutubeVideos } = useAppStore();
@@ -31,43 +35,36 @@ export function VideosScreen() {
   };
 
   useEffect(() => {
-    if (isConfigured && youtubeVideos.length === 0) {
-      loadVideos();
-    }
+    if (isConfigured && youtubeVideos.length === 0) loadVideos();
   }, []);
 
   const filteredVideos = search.trim()
     ? youtubeVideos.filter(v =>
         v.title.toLowerCase()
           .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          .includes(
-            search.toLowerCase()
-              .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          )
+          .includes(search.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
       )
     : youtubeVideos;
 
   if (!isConfigured) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-8 text-center gap-5">
-        <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center">
-          <Youtube size={32} className="text-red-500" />
+      <div
+        className="h-full flex flex-col items-center justify-center p-8 text-center gap-5"
+        style={{ paddingTop: 'var(--safe-area-top)' }}
+      >
+        <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(239,68,68,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>
+          ▶️
         </div>
-        <div className="space-y-2 max-w-xs">
-          <p className="font-bold text-gray-800 dark:text-white text-lg">YouTube no configurado</p>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
-            Para ver los vídeos de tu playlist, añade tu API key en el archivo <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs">.env.local</code>
+        <div>
+          <p className="display" style={{ fontSize: 22 }}>YouTube no configurado</p>
+          <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 6, maxWidth: 280 }}>
+            Añade tu API key y playlist ID en <code style={{ background: 'var(--cream-2)', padding: '2px 6px', borderRadius: 5, fontSize: 12 }}>.env.local</code> para ver los vídeos
           </p>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-2xl p-4 text-left text-xs font-mono space-y-1 w-full max-w-sm">
-          <p className="text-gray-500">// .env.local</p>
-          <p className="text-gray-700 dark:text-gray-300">VITE_YOUTUBE_API_KEY=<span className="text-primary">tu-key</span></p>
-          <p className="text-gray-700 dark:text-gray-300">VITE_YOUTUBE_PLAYLIST_ID=<span className="text-primary">PLxxx...</span></p>
-        </div>
-        <div className="text-xs text-gray-400 max-w-xs">
-          Obtén tu key gratis en{' '}
-          <span className="text-secondary font-medium">console.cloud.google.com</span>
-          {' '}→ YouTube Data API v3
+        <div style={{ background: 'var(--cream-2)', borderRadius: 16, padding: '14px 16px', textAlign: 'left', width: '100%', maxWidth: 320, fontFamily: 'var(--ff-mono)', fontSize: 12, lineHeight: 1.8 }}>
+          <div style={{ color: 'var(--muted)' }}>// .env.local</div>
+          <div>VITE_YOUTUBE_API_KEY=<span style={{ color: 'var(--orange)' }}>tu-key</span></div>
+          <div>VITE_YOUTUBE_PLAYLIST_ID=<span style={{ color: 'var(--orange)' }}>PLxxx…</span></div>
         </div>
       </div>
     );
@@ -75,87 +72,127 @@ export function VideosScreen() {
 
   return (
     <>
-      <div className="h-full flex flex-col overflow-hidden">
-        {/* Search bar */}
-        <div className="px-4 pt-2 pb-3 bg-white dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800">
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <div
+        className="h-full flex flex-col overflow-hidden"
+        style={{ paddingTop: 'var(--safe-area-top)' }}
+      >
+        {/* ── Header ── */}
+        <div style={{ padding: '14px 18px 12px' }}>
+          <div className="eyebrow">Playlist YouTube</div>
+          <div className="display" style={{ fontSize: 26, marginTop: 2 }}>Vídeos de recetas</div>
+
+          {/* Search */}
+          <div style={{
+            marginTop: 14, display: 'flex', alignItems: 'center', gap: 10,
+            background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '10px 12px',
+          }}>
+            <Search size={16} style={{ color: 'var(--muted)', flexShrink: 0 }} />
             <input
-              type="search"
-              placeholder="Buscar vídeo..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]"
+              placeholder="Buscar receta…"
+              style={{
+                flex: 1, border: 'none', background: 'transparent', outline: 'none',
+                fontFamily: 'var(--ff-body)', fontSize: 14, color: 'var(--ink)',
+              }}
             />
+            {search && (
+              <button onClick={() => setSearch('')} style={{ all: 'unset' as any, cursor: 'pointer', color: 'var(--muted)', lineHeight: 1 }}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+              {loading ? 'Cargando…' : `${filteredVideos.length} vídeos · caché 7 días`}
+            </span>
+            <button
+              onClick={() => { youtubeService.invalidateCache(); loadVideos(); }}
+              style={{ all: 'unset' as any, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)' }}
+            >
+              <RefreshCw size={12} /> Actualizar
+            </button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          {loading && <VideoGridSkeleton />}
-
-          {!loading && error && (
-            <div className="p-4 text-center space-y-3">
-              <p className="text-sm text-error">{error}</p>
-              <Button variant="ghost" size="sm" onClick={loadVideos} icon={<RefreshCw size={14} />}>
-                Reintentar
-              </Button>
+        {/* ── Grid ── */}
+        <div className="fade-in" style={{ flex: 1, overflowY: 'auto', padding: '0 18px' }}>
+          {error && (
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', marginBottom: 12, fontSize: 13, color: '#EF4444' }}>
+              {error}
             </div>
           )}
 
-          {!loading && !error && youtubeVideos.length === 0 && (
-            <div className="p-8 text-center">
-              <p className="text-gray-500 dark:text-gray-400 text-sm">No se encontraron vídeos en la playlist</p>
-              <Button className="mt-3" variant="ghost" size="sm" onClick={loadVideos} icon={<RefreshCw size={14} />}>
-                Recargar
-              </Button>
+          {loading && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[...Array(6)].map((_, i) => (
+                <div key={i}>
+                  <div className="skeleton" style={{ aspectRatio: '16/10', borderRadius: 14, marginBottom: 8 }} />
+                  <div className="skeleton" style={{ height: 12, borderRadius: 6, marginBottom: 5 }} />
+                  <div className="skeleton" style={{ height: 12, borderRadius: 6, width: '70%' }} />
+                </div>
+              ))}
             </div>
           )}
 
           {!loading && filteredVideos.length > 0 && (
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm text-gray-500">
-                  {filteredVideos.length} vídeo{filteredVideos.length !== 1 ? 's' : ''}
-                  {search && ` para "${search}"`}
-                </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {filteredVideos.map((v, idx) => (
                 <button
-                  onClick={() => { youtubeService.invalidateCache(); loadVideos(); }}
-                  className="text-xs text-gray-400 flex items-center gap-1 hover:text-primary"
+                  key={v.id}
+                  onClick={() => setSelectedVideo(v)}
+                  style={{
+                    all: 'unset' as any, cursor: 'pointer', borderRadius: 14, overflow: 'hidden',
+                    background: 'var(--card)', border: '1px solid var(--line)',
+                  }}
                 >
-                  <RefreshCw size={12} /> Actualizar
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {filteredVideos.map(video => (
-                  <button
-                    key={video.id}
-                    onClick={() => setSelectedVideo(video)}
-                    className="text-left active:scale-95 transition-transform touch-manipulation"
-                  >
-                    <div className="relative aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 mb-1.5">
+                  {/* Thumb */}
+                  <div style={{
+                    aspectRatio: '16 / 10', position: 'relative' as const,
+                    background: v.thumbnail ? 'var(--char)' : `linear-gradient(135deg, ${TONES[idx % TONES.length]} 0%, var(--char) 100%)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {v.thumbnail && (
                       <img
-                        src={video.thumbnail || youtubeService.getThumbnailUrl(video.id)}
-                        alt={video.title}
-                        className="w-full h-full object-cover"
+                        src={v.thumbnail || youtubeService.getThumbnailUrl(v.id)}
+                        alt={v.title}
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' as const }}
                         loading="lazy"
                       />
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/30 transition-opacity">
-                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                          <svg viewBox="0 0 24 24" width="16" height="16" fill="white">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        </div>
-                      </div>
+                    )}
+                    <div className="grain" style={{ opacity: 0.35 }} />
+                    <div style={{
+                      position: 'relative', zIndex: 1,
+                      width: 40, height: 40, borderRadius: 999,
+                      background: 'rgba(255,255,255,0.9)', color: 'var(--ink)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Play size={16} fill="currentColor" stroke="none" />
                     </div>
-                    <p className="text-xs font-medium text-gray-800 dark:text-gray-200 line-clamp-2 leading-snug">
-                      {video.title}
-                    </p>
-                  </button>
-                ))}
-              </div>
+                  </div>
+                  <div style={{ padding: '10px 11px 12px' }}>
+                    <div className="display" style={{
+                      fontSize: 12.5, lineHeight: 1.3,
+                      overflow: 'hidden', textOverflow: 'ellipsis',
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any,
+                      minHeight: 32,
+                    }}>
+                      {v.title}
+                    </div>
+                  </div>
+                </button>
+              ))}
             </div>
           )}
+
+          {!loading && !error && youtubeVideos.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 14 }}>
+              No se encontraron vídeos en la playlist
+            </div>
+          )}
+
+          <div style={{ height: 16 }} />
         </div>
       </div>
 

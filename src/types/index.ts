@@ -54,10 +54,15 @@ export interface BaseRecipe {
 
 export type DayName = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes';
 
+export type MealKey = 'desayuno' | 'preEntreno' | 'principal' | 'postEntreno' | 'cena';
+
+export type MealSelection = Record<DayName, Record<MealKey, boolean>>;
+
 export interface RecipeMeal {
   recipeId: string;
   recipeName: string;
   nutrition: NutritionInfo;
+  isSkipped?: boolean;
 }
 
 export interface DayMeals {

@@ -8,11 +8,31 @@ import type {
   WeeklyNutritionSummary,
   GeneratedMenuResponse,
   RecipeCategory,
+  MealKey,
+  MealSelection,
 } from '../types';
 import { recipeService } from './recipeService';
+import { buildFullSelection } from '../utils/prompts';
 
 const DAYS: DayName[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
 const DAYS_GEMINI = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'] as const;
+
+const ZERO_NUTRITION: NutritionInfo = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+
+const SKIPPED_MEAL: RecipeMeal = {
+  recipeId: 'skipped',
+  recipeName: 'Comer fuera',
+  nutrition: ZERO_NUTRITION,
+  isSkipped: true,
+};
+
+const MEAL_CATEGORY: Record<MealKey, RecipeCategory> = {
+  desayuno: 'desayuno',
+  preEntreno: 'pre-entreno',
+  principal: 'principal',
+  postEntreno: 'post-entreno',
+  cena: 'cena',
+};
 
 function sumNutrition(items: NutritionInfo[]): NutritionInfo {
   return items.reduce(
@@ -28,8 +48,9 @@ function sumNutrition(items: NutritionInfo[]): NutritionInfo {
 }
 
 function avgNutrition(days: DayMenu[]): WeeklyNutritionSummary {
-  const n = days.length;
-  const total = sumNutrition(days.map(d => d.totalNutrition));
+  const activeDays = days.filter(d => d.totalNutrition.calories > 0);
+  const n = activeDays.length || 1;
+  const total = sumNutrition(activeDays.map(d => d.totalNutrition));
   return {
     avgDailyCalories: Math.round(total.calories / n),
     avgDailyProtein: Math.round(total.protein / n),
@@ -62,30 +83,33 @@ export const menuService = {
   createWeeklyMenuFromAI(
     aiResponse: GeneratedMenuResponse,
     weekNumber: number,
-    year: number
+    year: number,
+    selection: MealSelection = buildFullSelection()
   ): WeeklyMenu {
     const recipes: BaseRecipe[] = aiResponse.recipes.map(geminiRecipeToBase);
     const recipeMap = new Map(recipes.map(r => [r.name, r]));
 
     const days: DayMenu[] = DAYS_GEMINI.map(dayKey => {
-      const dayGemini = aiResponse.weekMenu[dayKey];
+      const dayGemini = aiResponse.weekMenu?.[dayKey];
 
-      const getMeal = (mealName: string, category: RecipeCategory): RecipeMeal => {
+      const getMeal = (mealKey: MealKey): RecipeMeal => {
+        if (!selection[dayKey]?.[mealKey]) return SKIPPED_MEAL;
+        const mealName = dayGemini?.[mealKey];
+        if (!mealName) return SKIPPED_MEAL;
         const recipe = recipeMap.get(mealName);
         return {
           recipeId: recipe?.id ?? mealName,
           recipeName: mealName,
-          nutrition: recipe?.nutrition ?? { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 },
-          category,
-        } as RecipeMeal & { category: RecipeCategory };
+          nutrition: recipe?.nutrition ?? { ...ZERO_NUTRITION },
+        };
       };
 
       const meals = {
-        desayuno: getMeal(dayGemini.desayuno, 'desayuno'),
-        preEntreno: getMeal(dayGemini.preEntreno, 'pre-entreno'),
-        principal: getMeal(dayGemini.principal, 'principal'),
-        postEntreno: getMeal(dayGemini.postEntreno, 'post-entreno'),
-        cena: getMeal(dayGemini.cena, 'cena'),
+        desayuno: getMeal('desayuno'),
+        preEntreno: getMeal('preEntreno'),
+        principal: getMeal('principal'),
+        postEntreno: getMeal('postEntreno'),
+        cena: getMeal('cena'),
       };
 
       const totalNutrition = sumNutrition([
@@ -104,11 +128,8 @@ export const menuService = {
     });
 
     const nutritionSummary: WeeklyNutritionSummary = {
-      avgDailyCalories: aiResponse.weeklyNutrition.avgDailyCalories,
-      avgDailyProtein: aiResponse.weeklyNutrition.avgDailyProtein,
-      avgDailyCarbs: aiResponse.weeklyNutrition.avgDailyCarbs,
-      avgDailyFat: aiResponse.weeklyNutrition.avgDailyFat,
-      notes: aiResponse.weeklyNutrition.notes,
+      ...avgNutrition(days),
+      notes: aiResponse.weeklyNutrition?.notes,
     };
 
     return {
@@ -126,7 +147,8 @@ export const menuService = {
   createWeeklyMenuFromBase(
     excludeNames: string[],
     weekNumber: number,
-    year: number
+    year: number,
+    selection: MealSelection = buildFullSelection()
   ): WeeklyMenu {
     const excludeSet = new Set(excludeNames.map(n => n.toLowerCase()));
     const usedIds = new Set<string>();
@@ -154,13 +176,18 @@ export const menuService = {
       nutrition: r.nutrition,
     });
 
+    const pickMeal = (day: DayName, key: MealKey): RecipeMeal => {
+      if (!selection[day]?.[key]) return SKIPPED_MEAL;
+      return toMeal(getRecipe(MEAL_CATEGORY[key]));
+    };
+
     const days: DayMenu[] = DAYS.map(day => {
       const meals = {
-        desayuno: toMeal(getRecipe('desayuno')),
-        preEntreno: toMeal(getRecipe('pre-entreno')),
-        principal: toMeal(getRecipe('principal')),
-        postEntreno: toMeal(getRecipe('post-entreno')),
-        cena: toMeal(getRecipe('cena')),
+        desayuno: pickMeal(day, 'desayuno'),
+        preEntreno: pickMeal(day, 'preEntreno'),
+        principal: pickMeal(day, 'principal'),
+        postEntreno: pickMeal(day, 'postEntreno'),
+        cena: pickMeal(day, 'cena'),
       };
 
       const totalNutrition = sumNutrition([
@@ -189,11 +216,16 @@ export const menuService = {
   getAllRecipeNames(menu: WeeklyMenu): string[] {
     const names = new Set<string>();
     for (const day of menu.days) {
-      names.add(day.meals.desayuno.recipeName);
-      names.add(day.meals.preEntreno.recipeName);
-      names.add(day.meals.principal.recipeName);
-      names.add(day.meals.postEntreno.recipeName);
-      names.add(day.meals.cena.recipeName);
+      for (const meal of [
+        day.meals.desayuno,
+        day.meals.preEntreno,
+        day.meals.principal,
+        day.meals.postEntreno,
+        day.meals.cena,
+      ]) {
+        if (meal.isSkipped) continue;
+        names.add(meal.recipeName);
+      }
     }
     return Array.from(names);
   },

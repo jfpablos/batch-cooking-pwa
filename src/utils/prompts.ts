@@ -1,3 +1,5 @@
+import type { DayName, MealKey, MealSelection } from '../types';
+
 export const GEMINI_SYSTEM_PROMPT = `Eres un nutricionista deportivo especializado en crossfit y fuerza funcional.
 Generas menús semanales de batch cooking para el siguiente perfil:
 
@@ -38,12 +40,57 @@ REGLAS CULINARIAS:
 FORMATO DE RESPUESTA: JSON válido con estructura exacta definida en el prompt.
 NO añadir texto fuera del JSON. NO usar markdown. Responde SOLO con el JSON.`;
 
+const DAYS: DayName[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
+const MEAL_KEYS: MealKey[] = ['desayuno', 'preEntreno', 'principal', 'postEntreno', 'cena'];
+
+export function buildFullSelection(): MealSelection {
+  return DAYS.reduce((acc, day) => {
+    acc[day] = MEAL_KEYS.reduce((m, key) => {
+      m[key] = true;
+      return m;
+    }, {} as Record<MealKey, boolean>);
+    return acc;
+  }, {} as MealSelection);
+}
+
+export function countSelected(selection: MealSelection): number {
+  let n = 0;
+  for (const day of DAYS) {
+    for (const key of MEAL_KEYS) {
+      if (selection[day]?.[key]) n++;
+    }
+  }
+  return n;
+}
+
+function buildWeekMenuSchema(selection: MealSelection): string {
+  const lines: string[] = [];
+  for (const day of DAYS) {
+    const selectedKeys = MEAL_KEYS.filter(k => selection[day]?.[k]);
+    if (selectedKeys.length === 0) continue;
+    const inner = selectedKeys.map(k => `"${k}": "..."`).join(', ');
+    lines.push(`    "${day}": { ${inner} }`);
+  }
+  return `{\n${lines.join(',\n')}\n  }`;
+}
+
 export const generateMenuPrompt = (
   excludeRecipeNames: string[],
   weekNumber: number,
-  year: number
-): string => `
-Genera el menú completo de batch cooking para la semana ${weekNumber} de ${year} (lunes a viernes).
+  year: number,
+  selection: MealSelection = buildFullSelection()
+): string => {
+  const totalMeals = countSelected(selection);
+  const weekMenuSchema = buildWeekMenuSchema(selection);
+  const selectedDays = DAYS.filter(d => MEAL_KEYS.some(k => selection[d]?.[k]));
+
+  return `
+Genera el menú de batch cooking para la semana ${weekNumber} de ${year}.
+
+ALCANCE DE ESTA GENERACIÓN: el usuario solo necesita ${totalMeals} comida(s), distribuidas en ${selectedDays.length} día(s) (${selectedDays.join(', ')}).
+Genera ÚNICAMENTE las recetas para las claves día/comida que aparecen en el esquema "weekMenu" de abajo.
+NO inventes recetas para días o comidas no listados — el usuario comerá fuera o no necesita esa toma.
+El array "recipes" debe contener SOLO las recetas referenciadas en "weekMenu" (ni más, ni menos).
 
 RECETAS A EVITAR ESTA SEMANA (usadas en las últimas 4 semanas):
 ${excludeRecipeNames.length > 0
@@ -52,13 +99,7 @@ ${excludeRecipeNames.length > 0
 
 ESTRUCTURA REQUERIDA DEL JSON (responde EXACTAMENTE con este formato):
 {
-  "weekMenu": {
-    "lunes":     { "desayuno": "Nombre exacto de receta", "preEntreno": "...", "principal": "...", "postEntreno": "...", "cena": "..." },
-    "martes":    { "desayuno": "...", "preEntreno": "...", "principal": "...", "postEntreno": "...", "cena": "..." },
-    "miercoles": { "desayuno": "...", "preEntreno": "...", "principal": "...", "postEntreno": "...", "cena": "..." },
-    "jueves":    { "desayuno": "...", "preEntreno": "...", "principal": "...", "postEntreno": "...", "cena": "..." },
-    "viernes":   { "desayuno": "...", "preEntreno": "...", "principal": "...", "postEntreno": "...", "cena": "..." }
-  },
+  "weekMenu": ${weekMenuSchema},
   "recipes": [
     {
       "name": "Nombre exacto (debe coincidir con los usados en weekMenu)",
@@ -111,8 +152,11 @@ ESTRUCTURA REQUERIDA DEL JSON (responde EXACTAMENTE con este formato):
 
 IMPORTANTE:
 - Cada nombre en weekMenu debe coincidir EXACTAMENTE con el campo "name" de una receta en el array "recipes"
+- El array "recipes" SOLO contiene las recetas de las celdas seleccionadas (${totalMeals} celdas) — no añadas extras
+- "batchCookingGuide" solo describe pasos para las recetas listadas
+- "weeklyNutrition" debe ser el promedio de los días con al menos una comida planificada
 - No incluir recetas que aparecen en la lista de "RECETAS A EVITAR"
 - Los valores nutricionales deben aproximarse a los targets indicados por comida
-- Incluir al menos 15 recetas distintas (algunas se repiten en días distintos si es necesario)
 - Todas las cantidades en gramos exactos
 `;
+};

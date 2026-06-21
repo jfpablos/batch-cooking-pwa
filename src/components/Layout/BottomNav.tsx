@@ -1,14 +1,13 @@
-import { Zap, CalendarDays, ShoppingCart, Flame, Youtube, History } from 'lucide-react';
-import { clsx } from 'clsx';
+import { Sparkles, UtensilsCrossed, ShoppingCart, ChefHat, Play, History } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
 const TABS = [
-  { icon: Zap, label: 'Generar', tab: 0 },
-  { icon: CalendarDays, label: 'Mi Menú', tab: 1 },
-  { icon: ShoppingCart, label: 'Compra', tab: 2 },
-  { icon: Flame, label: 'Batch', tab: 3 },
-  { icon: Youtube, label: 'Vídeos', tab: 4 },
-  { icon: History, label: 'Historial', tab: 5 },
+  { icon: Sparkles,       label: 'Generar',   tab: 0 },
+  { icon: UtensilsCrossed,label: 'Mi menú',   tab: 1 },
+  { icon: ShoppingCart,   label: 'Compra',    tab: 2 },
+  { icon: ChefHat,        label: 'Batch',     tab: 3 },
+  { icon: Play,           label: 'Vídeos',    tab: 4 },
+  { icon: History,        label: 'Histórico', tab: 5 },
 ];
 
 export function BottomNav() {
@@ -16,43 +15,79 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-gray-950/95 backdrop-blur-sm border-t border-gray-100 dark:border-gray-800 safe-bottom"
-      style={{ paddingBottom: 'var(--safe-area-bottom)' }}
+      className="fixed bottom-0 left-0 right-0 z-40 safe-bottom"
+      style={{
+        background: 'rgba(250,249,247,0.92)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderTop: '1px solid var(--line)',
+      }}
     >
-      <div className="flex items-center justify-around px-1 h-16">
+      <div
+        className="flex items-stretch justify-between px-1"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)', paddingTop: '8px' }}
+      >
         {TABS.map(({ icon: Icon, label, tab }) => {
-          const isActive = activeTab === tab;
+          const active = activeTab === tab;
           return (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={clsx(
-                'flex flex-col items-center justify-center gap-0.5 flex-1 min-h-[56px] min-w-[44px] rounded-xl transition-all touch-manipulation',
-                isActive
-                  ? 'text-primary'
-                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
-              )}
+              className="flex flex-col items-center justify-center gap-0.5 flex-1 min-h-[56px] touch-manipulation"
+              style={{
+                all: 'unset',
+                flex: 1,
+                minHeight: 56,
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 3,
+                color: active ? 'var(--orange)' : 'var(--muted-2)',
+              }}
               aria-label={label}
-              aria-current={isActive ? 'page' : undefined}
+              aria-current={active ? 'page' : undefined}
             >
-              <Icon
-                size={22}
-                className={clsx(
-                  'transition-all',
-                  isActive ? 'stroke-[2.5px]' : 'stroke-[1.5px]'
+              <div
+                style={{
+                  position: 'relative',
+                  width: 28,
+                  height: 28,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {active && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: -4,
+                      background: 'rgba(255,107,53,0.12)',
+                      borderRadius: 10,
+                    }}
+                  />
                 )}
-              />
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <Icon
+                    size={20}
+                    strokeWidth={active ? 2.2 : 1.7}
+                    stroke={active ? 'var(--orange)' : 'var(--muted-2)'}
+                  />
+                </div>
+              </div>
               <span
-                className={clsx(
-                  'text-[10px] font-medium leading-tight',
-                  isActive ? 'font-bold' : ''
-                )}
+                style={{
+                  fontFamily: 'var(--ff-display)',
+                  fontSize: 9.5,
+                  fontWeight: active ? 700 : 600,
+                  letterSpacing: '0.02em',
+                  color: active ? 'var(--orange)' : 'var(--muted)',
+                }}
               >
                 {label}
               </span>
-              {isActive && (
-                <span className="absolute bottom-2 w-1 h-1 bg-primary rounded-full" style={{ position: 'static' }} />
-              )}
             </button>
           );
         })}

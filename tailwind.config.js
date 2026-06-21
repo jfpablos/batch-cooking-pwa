@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -33,14 +34,25 @@ export default {
           800: '#001F38',
           900: '#000F1D',
         },
+        // Design tokens (Performance Kitchen palette)
+        ink:    '#2A2318',
+        cream:  '#FAF9F7',
+        char:   '#322718',
+        cobalt: '#2E5FA8',
+        lime:   '#7FCB4A',
+        amber:  '#D4A42A',
+        plum:   '#7E3A7A',
+        teal:   '#3BA89A',
         success: '#06A77D',
         warning: '#F59E0B',
-        error: '#EF4444',
-        bg: '#F8F9FA',
-        card: '#FFFFFF',
+        error:   '#EF4444',
+        bg:      '#F8F9FA',
+        card:    '#FFFFFF',
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        sans:    ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Bricolage Grotesque', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono:    ['JetBrains Mono', 'ui-monospace', 'monospace'],
       },
       minHeight: {
         touch: '44px',
