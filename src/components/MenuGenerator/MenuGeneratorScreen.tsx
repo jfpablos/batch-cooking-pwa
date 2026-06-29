@@ -17,6 +17,10 @@ const GEN_STEPS = [
   { l: 'Generando lista de la compra', s: 'Agrupando ingredientes ×5' },
 ];
 
+// Real progress milestones set by useMenuGeneration. The long wait is between
+// 10 (AI call) and 40, so the bar creeps toward the next milestone meanwhile.
+const PROGRESS_MILESTONES = [10, 40, 60, 85, 100];
+
 export function MenuGeneratorScreen() {
   const { isGenerating, generationProgress, error, currentMenu, menuHistory } = useAppStore();
   const { generateMenu } = useMenuGeneration();
@@ -24,6 +28,7 @@ export function MenuGeneratorScreen() {
   const lastGenDate = storageService.get<string>(STORAGE_KEYS.LAST_GEN_DATE);
   const geminiOk = geminiService.isConfigured();
   const [done, setDone] = useState(false);
+  const [displayProgress, setDisplayProgress] = useState(0);
 
   const [selection, setSelection] = useState<MealSelection>(() => {
     const stored = storageService.get<MealSelection>(STORAGE_KEYS.MEAL_SELECTION);
@@ -41,6 +46,24 @@ export function MenuGeneratorScreen() {
   useEffect(() => {
     if (!isGenerating && currentMenu) setDone(true);
   }, [isGenerating, currentMenu]);
+
+  // Animate the progress bar: snap up to the real milestone, then creep slowly
+  // toward the next one so the bar keeps moving during the long AI call.
+  useEffect(() => {
+    if (!isGenerating) {
+      setDisplayProgress(generationProgress);
+      return;
+    }
+    setDisplayProgress(d => Math.max(d, generationProgress));
+    const next = PROGRESS_MILESTONES.find(m => m > generationProgress) ?? 100;
+    const ceiling = Math.max(generationProgress, next - 2);
+    const id = setInterval(() => {
+      setDisplayProgress(d =>
+        d >= ceiling ? d : Math.min(ceiling, d + Math.max(0.3, (ceiling - d) * 0.035))
+      );
+    }, 200);
+    return () => clearInterval(id);
+  }, [isGenerating, generationProgress]);
 
   // derive active step index from progress
   const stepIdx = Math.min(Math.floor((generationProgress / 100) * GEN_STEPS.length), GEN_STEPS.length - 1);
@@ -208,8 +231,8 @@ export function MenuGeneratorScreen() {
             })}
             {/* progress bar */}
             <div style={{ marginTop: 12 }}>
-              <div className="bar"><i style={{ width: generationProgress + '%' }} /></div>
-              <div style={{ marginTop: 6, textAlign: 'right', fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--ff-mono)' }} className="num">{generationProgress}%</div>
+              <div className="bar"><i style={{ width: Math.round(displayProgress) + '%', transition: 'width .25s linear' }} /></div>
+              <div style={{ marginTop: 6, textAlign: 'right', fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--ff-mono)' }} className="num">{Math.round(displayProgress)}%</div>
             </div>
           </div>
         )}

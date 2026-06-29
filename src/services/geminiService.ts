@@ -30,14 +30,18 @@ export class GeminiService {
   ): Promise<GeneratedMenuResponse> {
     const genAI = this.getGenAI();
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash-preview-05-20',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         responseMimeType: 'application/json',
         temperature: 0.7,
-        maxOutputTokens: 8192,
-      },
+        maxOutputTokens: 16384,
+        // Disable "thinking": keeps responses fast (~30-40s) and stops the
+        // thinking budget from truncating the menu JSON (MAX_TOKENS). The
+        // prompt is already highly prescriptive, so reasoning adds little.
+        thinkingConfig: { thinkingBudget: 0 },
+      } as any,
       systemInstruction: GEMINI_SYSTEM_PROMPT,
-    });
+    }, { timeout: 90000 }); // abort a stuck request → falls back to base recipes
 
     const prompt = generateMenuPrompt(excludeRecipeNames, weekNumber, year, selection);
 

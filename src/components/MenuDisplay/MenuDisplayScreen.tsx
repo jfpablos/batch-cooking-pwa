@@ -112,13 +112,13 @@ export function MenuDisplayScreen() {
                 key={key}
                 onClick={() => setDayIdx(i)}
                 style={{
+                  all: 'unset' as any,
                   flex: 1, minWidth: 0, height: 56, borderRadius: 14, cursor: 'pointer',
                   background: active ? 'var(--ink)' : 'var(--card)',
                   color: active ? 'var(--cream)' : 'var(--ink)',
                   border: '1px solid ' + (active ? 'var(--ink)' : 'var(--line)'),
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
                   fontFamily: 'var(--ff-display)', transition: 'all .15s',
-                  all: 'unset' as any,
                   boxSizing: 'border-box' as const,
                 }}
               >
