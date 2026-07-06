@@ -78,6 +78,7 @@ function geminiRecipeToBase(gr: GeneratedMenuResponse['recipes'][0]): BaseRecipe
     batchNotes: gr.batchNotes,
     source: 'gemini',
     prepStyle: gr.prepStyle,
+    sourceVideoId: gr.sourceVideoId || undefined,
   };
 }
 

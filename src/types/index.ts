@@ -49,6 +49,7 @@ export interface BaseRecipe {
   batchNotes?: string;
   source: RecipeSource;
   prepStyle?: RecipePrepStyle;
+  sourceVideoId?: string;  // vídeo de YouTube en el que se basa la receta
 }
 
 // =============================================
@@ -118,6 +119,7 @@ export interface GeminiRecipe {
   batchNotes: string;
   tags?: string[];
   prepStyle?: RecipePrepStyle;
+  sourceVideoId?: string;
 }
 
 export interface GeminiDayMenu {
@@ -288,6 +290,23 @@ export interface YouTubeCache {
   videos: YouTubeVideo[];
   timestamp: number;
   version?: number;
+}
+
+// =============================================
+// CATÁLOGO DE RECETAS POR VÍDEO
+// =============================================
+
+export interface VideoRecipe {
+  name: string;
+  videoId: string;
+  videoTitle: string;
+  type?: 'batch' | 'rapida';
+}
+
+export interface VideoRecipeCatalog {
+  entries: VideoRecipe[];
+  builtAt: number;
+  videoIds: string[];  // ids de la playlist con la que se construyó
 }
 
 // =============================================

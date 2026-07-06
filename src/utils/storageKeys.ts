@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   MEAL_SELECTION: 'batchfit:meal_selection',
   PANTRY: 'batchfit:pantry',
   BATCH_PROGRESS: 'batchfit:batch_progress',
+  VIDEO_RECIPES: 'batchfit:video_recipes',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

@@ -40,9 +40,17 @@ export function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDetailModal
 
   if (!isOpen || !recipe) return null;
 
-  const matchedVideo: YouTubeVideo | null = youtubeVideos.length > 0
-    ? youtubeService.findMatchingVideo(recipe.name, youtubeVideos)
-    : null;
+  // Enlace explícito al vídeo origen si la receta viene del catálogo de la
+  // playlist; si no, matching aproximado por palabras del título.
+  const matchedVideo: YouTubeVideo | null = recipe.sourceVideoId
+    ? youtubeVideos.find(v => v.id === recipe.sourceVideoId) ?? {
+        id: recipe.sourceVideoId,
+        title: 'Vídeo de la receta',
+        thumbnail: youtubeService.getThumbnailUrl(recipe.sourceVideoId),
+      }
+    : youtubeVideos.length > 0
+      ? youtubeService.findMatchingVideo(recipe.name, youtubeVideos)
+      : null;
 
   const cat = CATEGORY_COLORS[recipe.category] ?? { label: recipe.category, color: 'var(--orange)', stripe: '' };
 

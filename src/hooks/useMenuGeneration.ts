@@ -4,6 +4,7 @@ import { menuService } from '../services/menuService';
 import { shoppingListService } from '../services/shoppingListService';
 import { storageService } from '../services/storageService';
 import { youtubeService } from '../services/youtubeService';
+import { videoRecipeService } from '../services/videoRecipeService';
 import { STORAGE_KEYS } from '../utils/storageKeys';
 import { getCurrentWeekAndYear } from '../utils/dateUtils';
 import { useHistoryRotation } from './useHistoryRotation';
@@ -20,16 +21,21 @@ const STEPS = [
 ];
 
 const MAX_INSPIRATION_VIDEOS = 12;
+const MAX_VIDEO_RECIPES = 15;
 
-function pickInspirationVideos(videos: { title: string; description?: string }[]) {
-  const shuffled = [...videos];
+function shuffle<T>(items: T[]): T[] {
+  const shuffled = [...items];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  return shuffled
+  return shuffled;
+}
+
+function pickInspirationVideos(videos: { title: string; description?: string }[]) {
+  return shuffle(videos)
     .slice(0, MAX_INSPIRATION_VIDEOS)
-    .map(v => ({ title: v.title, description: v.description }));
+    .map(v => ({ title: v.title, description: v.description?.slice(0, 250) }));
 }
 
 export function useMenuGeneration() {
@@ -59,18 +65,29 @@ export function useMenuGeneration() {
 
       if (geminiService.isConfigured()) {
         try {
+          // Catálogo de recetas por vídeo (cacheado; se construye con Gemini
+          // la primera vez o cuando cambia la playlist). Si falla, se usa el
+          // fallback de títulos+descripciones.
+          setGenerating(true, 'Analizando recetas de tus vídeos...', 5);
+          const videoRecipes = await videoRecipeService.getCatalog().catch(err => {
+            console.warn('[MenuGen] Catálogo de vídeos no disponible:', err);
+            return [] as Awaited<ReturnType<typeof videoRecipeService.getCatalog>>;
+          });
+          const videoRecipesSample = shuffle(videoRecipes).slice(0, MAX_VIDEO_RECIPES);
+
+          let inspirationVideos: { title: string; description?: string }[] = [];
+          if (videoRecipesSample.length === 0) {
+            const videos = await youtubeService.getPlaylistVideos().catch(() => []);
+            inspirationVideos = pickInspirationVideos(videos);
+          }
+
           setGenerating(true, STEPS[0], 10);
-
-          // Vídeos de la playlist como inspiración (cacheados; [] si no hay YouTube)
-          const videos = await youtubeService.getPlaylistVideos().catch(() => []);
-          const inspirationVideos = pickInspirationVideos(videos);
-
           const aiResponse = await geminiService.generateWeeklyMenu(
             excludeNames,
             weekNumber,
             year,
             selection,
-            { pantryItems: pantryNames, inspirationVideos }
+            { pantryItems: pantryNames, videoRecipes: videoRecipesSample, inspirationVideos }
           );
 
           setGenerating(true, STEPS[1], 40);

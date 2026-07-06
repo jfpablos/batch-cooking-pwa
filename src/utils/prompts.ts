@@ -1,4 +1,4 @@
-import type { BaseRecipe, DayName, MealKey, MealSelection, RecipeScheduleEntry } from '../types';
+import type { BaseRecipe, DayName, MealKey, MealSelection, RecipeScheduleEntry, VideoRecipe } from '../types';
 
 export const GEMINI_SYSTEM_PROMPT = `Eres un nutricionista deportivo especializado en crossfit y fuerza funcional.
 Generas menús semanales de batch cooking para el siguiente perfil:
@@ -87,6 +87,7 @@ function buildWeekMenuSchema(selection: MealSelection): string {
 export interface MenuPromptOptions {
   pantryItems?: string[];
   inspirationVideos?: { title: string; description?: string }[];
+  videoRecipes?: VideoRecipe[];
 }
 
 const buildPantrySection = (pantryItems: string[]): string => {
@@ -97,6 +98,22 @@ ${pantryItems.map(p => `- ${p}`).join('\n')}
 Incorpora estos ingredientes en las recetas cuando encajen con los macros y el estilo batch cooking.
 No es obligatorio usarlos todos, pero prioriza recetas que los aprovechen.
 Inclúyelos igualmente en los "ingredients" de cada receta con su cantidad exacta.
+`;
+};
+
+const buildVideoRecipesSection = (videoRecipes: VideoRecipe[]): string => {
+  if (videoRecipes.length === 0) return '';
+  const lines = videoRecipes.map((r, i) =>
+    `${i + 1}. "${r.name}"${r.type === 'rapida' ? ' (rápida)' : ''} — del vídeo "${r.videoTitle}" [videoId: ${r.videoId}]`
+  );
+  return `
+RECETAS DE LOS VÍDEOS DEL USUARIO (extraídas de su playlist de batch cooking en YouTube):
+${lines.join('\n')}
+Incluye 1-3 de estas recetas en el menú cuando encajen con los targets de macros y las reglas
+de batch cooking (adapta ingredientes a gramos exactos para cumplir los macros).
+El resto de recetas deben ser creación tuya — NO uses solo recetas de esta lista.
+En cada receta del menú basada en una de estas, mantén un nombre similar y añade el campo
+"sourceVideoId" con el videoId indicado entre corchetes.
 `;
 };
 
@@ -139,7 +156,12 @@ RECETAS A EVITAR ESTA SEMANA (usadas en las últimas 4 semanas):
 ${excludeRecipeNames.length > 0
   ? excludeRecipeNames.map(r => `- ${r}`).join('\n')
   : '- (ninguna restricción esta semana — primera generación)'}
-${buildPantrySection(opts.pantryItems ?? [])}${buildInspirationSection(opts.inspirationVideos ?? [])}
+${buildPantrySection(opts.pantryItems ?? [])}${
+  // El catálogo de recetas por vídeo es más preciso; los títulos solo son el fallback
+  opts.videoRecipes?.length
+    ? buildVideoRecipesSection(opts.videoRecipes)
+    : buildInspirationSection(opts.inspirationVideos ?? [])
+}
 ESTRUCTURA REQUERIDA DEL JSON (responde EXACTAMENTE con este formato):
 {
   "weekMenu": ${weekMenuSchema},
@@ -169,7 +191,8 @@ ESTRUCTURA REQUERIDA DEL JSON (responde EXACTAMENTE con este formato):
       },
       "batchNotes": "Para preparar ×5: duplicar todos los ingredientes por 5...",
       "tags": ["pollo", "batch-friendly", "alto-proteína"],
-      "prepStyle": "batch"
+      "prepStyle": "batch",
+      "sourceVideoId": null
     }
   ],
   "batchCookingGuide": {
@@ -202,6 +225,8 @@ IMPORTANTE:
   Usa "batch" para todo lo que sí se cocina el domingo para la semana.
 - "batchCookingGuide" solo describe pasos para las recetas con "prepStyle": "batch" — NO incluyas
   tareas para las recetas "al-momento"
+- "sourceVideoId": solo si la receta está basada en una de las RECETAS DE LOS VÍDEOS DEL USUARIO
+  (usa el videoId indicado); en caso contrario usa null
 - VARIEDAD: en "principal" y "cena" ninguna receta puede aparecer en más de 2 días, y debe haber
   al menos 3 recetas distintas en cada una de esas comidas a lo largo de la semana. Si repites una
   base 2 días, cambia la guarnición y el nombre de la receta
@@ -339,5 +364,50 @@ IMPORTANTE:
 - "recipeName" y "recipeNames" deben coincidir EXACTAMENTE con los nombres de receta dados arriba
 - "estimatedTotalTime" y cada "duration" en minutos
 - Todo el texto en español
+`;
+};
+
+// =============================================
+// EXTRACCIÓN DE RECETAS DE LOS VÍDEOS (catálogo)
+// =============================================
+
+export const GEMINI_VIDEO_CATALOG_SYSTEM_PROMPT = `Eres un asistente que cataloga recetas de vídeos de cocina de YouTube.
+Recibirás una lista de vídeos (título + descripción) de una playlist de batch cooking y recetas rápidas.
+Muchos vídeos son recopilatorios y contienen VARIAS recetas (suelen listarse en la descripción,
+a menudo con timestamps). Tu trabajo: extraer TODAS las recetas identificables de cada vídeo.
+FORMATO DE RESPUESTA: JSON válido según el esquema del prompt. Sin markdown ni texto extra.`;
+
+export const generateVideoCatalogPrompt = (
+  videos: { id: string; title: string; description?: string }[]
+): string => {
+  const blocks = videos.map((v, i) => `${i + 1}. [videoId: ${v.id}]
+Título: ${v.title}${v.description?.trim() ? `\nDescripción: ${v.description.trim()}` : ''}`);
+
+  return `
+Extrae las recetas de estos ${videos.length} vídeos de cocina:
+
+${blocks.join('\n\n')}
+
+INSTRUCCIONES:
+- Extrae TODAS las recetas identificables de cada vídeo (título + descripción, incluidos
+  los listados con timestamps de los recopilatorios)
+- Nombra cada receta de forma clara y completa en español (ej: "Pollo al curry con arroz basmati",
+  no "receta 2" ni "0:45")
+- "type": "batch" si es apta para preparar el domingo y conservar varios días, "rapida" si es
+  una receta exprés que se hace al momento
+- Si de un vídeo no puedes identificar recetas concretas, deduce UNA del título
+- NO inventes recetas que no se mencionen en el título o la descripción
+
+ESTRUCTURA REQUERIDA DEL JSON (responde EXACTAMENTE con este formato):
+{
+  "videos": [
+    {
+      "videoId": "el videoId indicado entre corchetes",
+      "recipes": [
+        { "name": "Nombre claro de la receta", "type": "batch" }
+      ]
+    }
+  ]
+}
 `;
 };

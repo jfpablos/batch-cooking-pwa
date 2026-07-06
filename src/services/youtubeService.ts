@@ -6,8 +6,9 @@ const YT_API_BASE = 'https://www.googleapis.com/youtube/v3';
 const PLAYLIST_ID = import.meta.env.VITE_YOUTUBE_PLAYLIST_ID as string;
 const YT_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string;
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 días
-// v2: añade "description" a los vídeos cacheados
-const CACHE_VERSION = 2;
+// v2: añade "description"; v3: descripción completa (hasta 2000 chars) para
+// poder extraer las recetas de los vídeos recopilatorios
+const CACHE_VERSION = 3;
 
 export class YouTubeService {
 
@@ -60,7 +61,7 @@ export class YouTubeService {
               id: resourceId.videoId as string,
               title: snippet.title as string,
               thumbnail: thumbnails?.medium?.url || thumbnails?.default?.url || '',
-              description: ((snippet.description as string) || '').slice(0, 250),
+              description: ((snippet.description as string) || '').slice(0, 2000),
             });
           }
         });

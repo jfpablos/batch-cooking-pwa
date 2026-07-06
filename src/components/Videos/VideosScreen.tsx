@@ -3,6 +3,7 @@ import { Search, Play, X, RefreshCw } from 'lucide-react';
 import { VideoModal } from '../Common/VideoModal';
 import { useAppStore } from '../../store/useAppStore';
 import { youtubeService } from '../../services/youtubeService';
+import { videoRecipeService } from '../../services/videoRecipeService';
 import type { YouTubeVideo } from '../../types';
 
 // Tones for video thumbnail placeholders when no thumbnail available
@@ -19,6 +20,14 @@ export function VideosScreen() {
   const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(null);
 
   const isConfigured = youtubeService.isConfigured();
+
+  // Registro de recetas por vídeo (extraído por la IA durante la generación)
+  const recipesByVideo = new Map<string, string[]>();
+  for (const entry of videoRecipeService.getCachedCatalog()) {
+    const list = recipesByVideo.get(entry.videoId) ?? [];
+    list.push(entry.name);
+    recipesByVideo.set(entry.videoId, list);
+  }
 
   const loadVideos = useCallback(async () => {
     if (!isConfigured) return;
@@ -108,7 +117,7 @@ export function VideosScreen() {
               {loading ? 'Cargando…' : `${filteredVideos.length} vídeos · caché 7 días`}
             </span>
             <button
-              onClick={() => { youtubeService.invalidateCache(); loadVideos(); }}
+              onClick={() => { youtubeService.invalidateCache(); videoRecipeService.invalidate(); loadVideos(); }}
               style={{ all: 'unset' as const, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)' }}
             >
               <RefreshCw size={12} /> Actualizar
@@ -180,6 +189,15 @@ export function VideosScreen() {
                     }}>
                       {v.title}
                     </div>
+                    {(recipesByVideo.get(v.id)?.length ?? 0) > 0 && (
+                      <div style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.4, color: 'var(--muted)' }}>
+                        <span style={{ fontWeight: 700, color: 'var(--orange-2)' }}>
+                          {recipesByVideo.get(v.id)!.length} receta{recipesByVideo.get(v.id)!.length === 1 ? '' : 's'}:
+                        </span>{' '}
+                        {recipesByVideo.get(v.id)!.slice(0, 3).join(' · ')}
+                        {recipesByVideo.get(v.id)!.length > 3 && ` · +${recipesByVideo.get(v.id)!.length - 3} más`}
+                      </div>
+                    )}
                   </div>
                 </button>
               ))}

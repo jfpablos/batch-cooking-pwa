@@ -3,8 +3,10 @@ import type { GenerationConfig } from '@google/generative-ai';
 import {
   GEMINI_SYSTEM_PROMPT,
   GEMINI_GUIDE_SYSTEM_PROMPT,
+  GEMINI_VIDEO_CATALOG_SYSTEM_PROMPT,
   generateMenuPrompt,
   generateBatchGuidePrompt,
+  generateVideoCatalogPrompt,
   buildFullSelection,
 } from '../utils/prompts';
 import type { MenuPromptOptions } from '../utils/prompts';
@@ -20,6 +22,8 @@ import type {
   GeneratedMenuResponse,
   MealSelection,
   RecipeScheduleEntry,
+  VideoRecipe,
+  YouTubeVideo,
 } from '../types';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
@@ -176,6 +180,57 @@ export class GeminiService {
     }
 
     throw lastError ?? new Error('Error desconocido al generar la guía batch');
+  }
+
+  /**
+   * Extrae las recetas contenidas en los vídeos de la playlist (título +
+   * descripción; los recopilatorios listan varias recetas por vídeo).
+   * Un solo intento: el catálogo es opcional y se cachea.
+   */
+  async extractVideoRecipes(videos: YouTubeVideo[]): Promise<VideoRecipe[]> {
+    const genAI = this.getGenAI();
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+        thinkingConfig: { thinkingBudget: 0 },
+      } as ThinkingGenerationConfig,
+      systemInstruction: GEMINI_VIDEO_CATALOG_SYSTEM_PROMPT,
+    }, { timeout: 90000 });
+
+    // Acota el tamaño del prompt: hasta 40 vídeos con descripción recortada
+    const input = videos.slice(0, 40).map(v => ({
+      id: v.id,
+      title: v.title,
+      description: v.description?.slice(0, 1500),
+    }));
+
+    const result = await model.generateContent(generateVideoCatalogPrompt(input));
+    const parsed = JSON.parse(result.response.text()) as {
+      videos?: { videoId?: string; recipes?: { name?: string; type?: string }[] }[];
+    };
+
+    if (!Array.isArray(parsed.videos)) {
+      throw new Error('Catálogo de vídeos con formato inesperado');
+    }
+
+    const titleById = new Map(videos.map(v => [v.id, v.title]));
+    const entries: VideoRecipe[] = [];
+    for (const v of parsed.videos) {
+      if (!v.videoId || !titleById.has(v.videoId)) continue;
+      for (const r of v.recipes ?? []) {
+        if (!r.name || typeof r.name !== 'string') continue;
+        entries.push({
+          name: r.name,
+          videoId: v.videoId,
+          videoTitle: titleById.get(v.videoId)!,
+          type: r.type === 'rapida' ? 'rapida' : 'batch',
+        });
+      }
+    }
+    return entries;
   }
 }
 
