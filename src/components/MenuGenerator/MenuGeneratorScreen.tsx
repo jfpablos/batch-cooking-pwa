@@ -8,18 +8,21 @@ import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { geminiService } from '../../services/geminiService';
 import { buildFullSelection, countSelected } from '../../utils/prompts';
 import { MealSelector } from './MealSelector';
+import { PantrySection } from './PantrySection';
 import type { MealSelection } from '../../types';
 
 const GEN_STEPS = [
-  { l: 'Analizando tus targets',       s: 'Mifflin-St Jeor · 3.290 kcal · L–V' },
-  { l: 'Buscando recetas variadas',     s: '+ histórico de 4 semanas' },
+  { l: 'Analizando tus targets',        s: 'Mifflin-St Jeor · 3.290 kcal · L–V' },
+  { l: 'Buscando recetas variadas',     s: '+ histórico · despensa · vídeos' },
   { l: 'Equilibrando macros por comida',s: '5 tomas · ventana anabólica' },
-  { l: 'Generando lista de la compra', s: 'Agrupando ingredientes ×5' },
+  { l: 'Detallando guía batch',         s: 'Pasos exactos + plan de conservación' },
+  { l: 'Generando lista de la compra',  s: 'Agrupando ingredientes ×5' },
 ];
 
-// Real progress milestones set by useMenuGeneration. The long wait is between
-// 10 (AI call) and 40, so the bar creeps toward the next milestone meanwhile.
-const PROGRESS_MILESTONES = [10, 40, 60, 85, 100];
+// Real progress milestones set by useMenuGeneration. The long waits are the
+// two AI calls (10→40 menu, 45→70 detailed guide), so the bar creeps toward
+// the next milestone meanwhile.
+const PROGRESS_MILESTONES = [10, 40, 45, 70, 80, 92, 100];
 
 export function MenuGeneratorScreen() {
   const { isGenerating, generationProgress, error, currentMenu, menuHistory } = useAppStore();
@@ -27,8 +30,9 @@ export function MenuGeneratorScreen() {
   const { weekNumber, year } = getCurrentWeekAndYear();
   const lastGenDate = storageService.get<string>(STORAGE_KEYS.LAST_GEN_DATE);
   const geminiOk = geminiService.isConfigured();
-  const [done, setDone] = useState(false);
-  const [displayProgress, setDisplayProgress] = useState(0);
+  // Generation just finished: setGenerating(false, '', 100) leaves progress at 100
+  const done = !isGenerating && generationProgress === 100 && !!currentMenu;
+  const [creepProgress, setCreepProgress] = useState(0);
 
   const [selection, setSelection] = useState<MealSelection>(() => {
     const stored = storageService.get<MealSelection>(STORAGE_KEYS.MEAL_SELECTION);
@@ -42,34 +46,29 @@ export function MenuGeneratorScreen() {
     storageService.set(STORAGE_KEYS.MEAL_SELECTION, next);
   };
 
-  // track when generation finishes
+  // Animate the progress bar: the displayed value snaps to the real milestone
+  // and an interval creeps it toward the next one so the bar keeps moving
+  // during the long AI calls. State only changes inside the interval callback.
   useEffect(() => {
-    if (!isGenerating && currentMenu) setDone(true);
-  }, [isGenerating, currentMenu]);
-
-  // Animate the progress bar: snap up to the real milestone, then creep slowly
-  // toward the next one so the bar keeps moving during the long AI call.
-  useEffect(() => {
-    if (!isGenerating) {
-      setDisplayProgress(generationProgress);
-      return;
-    }
-    setDisplayProgress(d => Math.max(d, generationProgress));
+    if (!isGenerating) return;
     const next = PROGRESS_MILESTONES.find(m => m > generationProgress) ?? 100;
     const ceiling = Math.max(generationProgress, next - 2);
     const id = setInterval(() => {
-      setDisplayProgress(d =>
-        d >= ceiling ? d : Math.min(ceiling, d + Math.max(0.3, (ceiling - d) * 0.035))
-      );
+      setCreepProgress(c => {
+        const base = Math.max(c, generationProgress);
+        return base >= ceiling ? base : Math.min(ceiling, base + Math.max(0.3, (ceiling - base) * 0.035));
+      });
     }, 200);
     return () => clearInterval(id);
   }, [isGenerating, generationProgress]);
+
+  const displayProgress = isGenerating ? Math.max(creepProgress, generationProgress) : generationProgress;
 
   // derive active step index from progress
   const stepIdx = Math.min(Math.floor((generationProgress / 100) * GEN_STEPS.length), GEN_STEPS.length - 1);
 
   const handleGenerate = () => {
-    setDone(false);
+    setCreepProgress(0);
     generateMenu(selection);
   };
 
@@ -201,6 +200,9 @@ export function MenuGeneratorScreen() {
 
         {/* ── Day/meal selector ── */}
         <MealSelector selection={selection} onChange={updateSelection} />
+
+        {/* ── Pantry: ingredientes a gastar ── */}
+        <PantrySection />
 
         {/* ── Generation progress detail ── */}
         {isGenerating && (

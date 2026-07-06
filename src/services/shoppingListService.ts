@@ -7,6 +7,7 @@ import type {
   Ingredient,
   BaseRecipe,
 } from '../types';
+import { normalizeText } from '../utils/textUtils';
 
 // Mapeo de ingredientes a categorías
 const CATEGORY_MAP: Record<string, ShoppingCategoryName> = {
@@ -213,6 +214,36 @@ export const shoppingListService = {
     }
   },
 
+  /**
+   * Marca como "ya en casa" los items de la lista que coinciden con
+   * ingredientes de la despensa (match normalizado: substring en ambos
+   * sentidos o solape de palabras > 3 caracteres).
+   */
+  markPantryItems(list: ShoppingList, pantryNames: string[]): ShoppingList {
+    if (pantryNames.length === 0) return list;
+    const normalizedPantry = pantryNames.map(normalizeText).filter(p => p.trim().length > 0);
+
+    const matches = (itemName: string): boolean => {
+      const item = normalizeText(itemName);
+      const itemWords = item.split(/\s+/).filter(w => w.length > 3);
+      return normalizedPantry.some(pantry => {
+        if (item.includes(pantry.trim()) || pantry.includes(item.trim())) return true;
+        const pantryWords = pantry.split(/\s+/).filter(w => w.length > 3);
+        return pantryWords.some(pw => itemWords.includes(pw));
+      });
+    };
+
+    return {
+      ...list,
+      categories: list.categories.map(cat => ({
+        ...cat,
+        items: cat.items.map(item =>
+          matches(item.name) ? { ...item, inPantry: true } : item
+        ),
+      })),
+    };
+  },
+
   toggleItem(list: ShoppingList, categoryName: ShoppingCategoryName, itemName: string): ShoppingList {
     return {
       ...list,
@@ -235,7 +266,8 @@ export const shoppingListService = {
       lines.push(`\n📦 ${cat.category.toUpperCase()}`);
       for (const item of cat.items) {
         const check = item.purchased ? '✓' : '□';
-        lines.push(`${check} ${item.name}: ${Math.round(item.totalAmount)}${item.unit}`);
+        const pantryTag = item.inPantry ? ' (ya en casa)' : '';
+        lines.push(`${check} ${item.name}: ${Math.round(item.totalAmount)}${item.unit}${pantryTag}`);
       }
     }
     return lines.join('\n');

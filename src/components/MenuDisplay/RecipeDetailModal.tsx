@@ -115,7 +115,7 @@ export function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDetailModal
               <button
                 onClick={() => setVideoOpen(true)}
                 style={{
-                  all: 'unset' as any, cursor: 'pointer', width: '100%', boxSizing: 'border-box' as const,
+                  all: 'unset' as const, cursor: 'pointer', width: '100%', boxSizing: 'border-box' as const,
                   borderRadius: 16, overflow: 'hidden', position: 'relative' as const, display: 'block',
                   background: 'linear-gradient(135deg, var(--orange) 0%, var(--char) 100%)',
                   aspectRatio: '16 / 8',

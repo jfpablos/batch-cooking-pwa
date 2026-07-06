@@ -7,6 +7,8 @@ export const STORAGE_KEYS = {
   YT_VIDEOS_CACHE: 'batchfit:yt_videos',
   SHOPPING_CHECKED: 'batchfit:shopping_checked',
   MEAL_SELECTION: 'batchfit:meal_selection',
+  PANTRY: 'batchfit:pantry',
+  BATCH_PROGRESS: 'batchfit:batch_progress',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

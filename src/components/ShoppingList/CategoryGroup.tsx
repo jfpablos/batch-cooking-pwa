@@ -28,7 +28,7 @@ export function CategoryGroup({ category, onToggleItem }: CategoryGroupProps) {
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          all: 'unset' as any, width: '100%', boxSizing: 'border-box' as const, cursor: 'pointer',
+          all: 'unset' as const, width: '100%', boxSizing: 'border-box' as const, cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0',
         }}
       >

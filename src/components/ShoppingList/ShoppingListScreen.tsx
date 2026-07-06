@@ -74,7 +74,7 @@ export function ShoppingListScreen() {
         if (!line.trim()) { y += 3; continue; }
         if (line.startsWith('📦')) { doc.setFont('helvetica', 'bold'); doc.setFontSize(11); y += 4; }
         else { doc.setFont('helvetica', 'normal'); doc.setFontSize(10); }
-        doc.text(line.replace(/[📦✓□]/g, '').trim(), 15, y);
+        doc.text(line.replace(/[📦✓□]/gu, '').trim(), 15, y);
         y += 6;
       }
       doc.save(`batchfit-compra-semana-${shoppingList.menuId}.pdf`);

@@ -29,6 +29,8 @@ export interface StorageInfo {
 export type RecipeCategory = 'desayuno' | 'pre-entreno' | 'principal' | 'post-entreno' | 'cena';
 export type RecipeDifficulty = 'fácil' | 'medio' | 'difícil';
 export type RecipeSource = 'base' | 'gemini';
+// 'batch' se prepara el domingo; 'al-momento' se hace fresco en el día (batidos, gachas...)
+export type RecipePrepStyle = 'batch' | 'al-momento';
 
 export interface BaseRecipe {
   id: string;
@@ -46,6 +48,7 @@ export interface BaseRecipe {
   batchMultiplier: number;
   batchNotes?: string;
   source: RecipeSource;
+  prepStyle?: RecipePrepStyle;
 }
 
 // =============================================
@@ -114,6 +117,7 @@ export interface GeminiRecipe {
   storage: StorageInfo;
   batchNotes: string;
   tags?: string[];
+  prepStyle?: RecipePrepStyle;
 }
 
 export interface GeminiDayMenu {
@@ -131,6 +135,10 @@ export interface GeminiBatchTask {
   duration: number;
   parallelWith: number | null;
   storageResult: string;
+  steps?: string[];
+  seasoning?: string;
+  equipment?: string;
+  recipeNames?: string[];
 }
 
 export interface GeminiBatchGuide {
@@ -170,6 +178,24 @@ export interface BatchTask {
   duration: number;
   parallelWith: number | null;
   storageResult: string;
+  steps?: string[];        // sub-pasos detallados a prueba de principiantes
+  seasoning?: string;      // condimentación exacta de la tarea
+  equipment?: string;      // utensilios / preparación previa
+  recipeNames?: string[];  // recetas a las que pertenece la tarea
+}
+
+export type ConservationMethod = 'nevera' | 'congelador' | 'mixto';
+
+export interface ConservationEntry {
+  recipeName: string;
+  method: ConservationMethod;
+  container: string;
+  portions: string;
+  fridgeDays: number;
+  freezeInstructions?: string;
+  thawInstructions?: string;
+  reheatInstructions: string;
+  targetDays: string[];
 }
 
 export interface BatchCookingGuide {
@@ -178,6 +204,21 @@ export interface BatchCookingGuide {
   estimatedTotalTime: number;
   tasks: BatchTask[];
   generatedAt: string;
+  conservationPlan?: ConservationEntry[];
+  detailLevel?: 'basic' | 'detailed';
+}
+
+// Respuesta de la segunda llamada Gemini (guía detallada)
+export interface GeneratedGuideResponse {
+  estimatedTotalTime: number;
+  tasks: BatchTask[];
+  conservationPlan: ConservationEntry[];
+}
+
+// Calendario de consumo de una receta (entrada del prompt de la guía)
+export interface RecipeScheduleEntry {
+  recipeName: string;
+  occurrences: { day: DayName; meal: MealKey }[];
 }
 
 // =============================================
@@ -199,6 +240,7 @@ export interface ShoppingItem {
   unit: string;
   purchased: boolean;
   mealsContaining: string[];
+  inPantry?: boolean;
 }
 
 export interface ShoppingCategory {
@@ -239,11 +281,46 @@ export interface YouTubeVideo {
   title: string;
   thumbnail: string;
   duration?: string;
+  description?: string;
 }
 
 export interface YouTubeCache {
   videos: YouTubeVideo[];
   timestamp: number;
+  version?: number;
+}
+
+// =============================================
+// DESPENSA (ingredientes a gastar)
+// =============================================
+
+export interface PantryItem {
+  id: string;
+  name: string;
+  addedAt: string;
+}
+
+// =============================================
+// TEMPORIZADOR DE TAREAS BATCH
+// =============================================
+
+export interface ActiveTimer {
+  taskOrder: number;
+  totalSeconds: number;
+  endsAt: number | null;      // epoch ms cuando corre; null en pausa
+  remainingAtPause: number;   // segundos restantes al pausar
+  status: 'running' | 'paused' | 'finished';
+}
+
+// =============================================
+// PROGRESO GUÍA BATCH (persistido)
+// =============================================
+
+export interface BatchProgress {
+  menuId: string;
+  done: number[];
+  current: number | null;
+  cooking: boolean;
 }
 
 // =============================================
@@ -259,6 +336,8 @@ export interface AppState {
   batchGuide: BatchCookingGuide | null;
   menuHistory: StoredWeek[];
   youtubeVideos: YouTubeVideo[];
+  pantryItems: PantryItem[];
+  activeTimer: ActiveTimer | null;
 
   // UI
   activeTab: number;
@@ -275,6 +354,13 @@ export interface AppState {
   setBatchGuide: (guide: BatchCookingGuide | null) => void;
   setMenuHistory: (history: StoredWeek[]) => void;
   setYoutubeVideos: (videos: YouTubeVideo[]) => void;
+  addPantryItem: (name: string) => void;
+  removePantryItem: (id: string) => void;
+  startTimer: (taskOrder: number, seconds: number) => void;
+  pauseTimer: () => void;
+  resumeTimer: () => void;
+  resetTimer: () => void;
+  finishTimer: () => void;
   setActiveTab: (tab: number) => void;
   setGenerating: (loading: boolean, step?: string, progress?: number) => void;
   setError: (error: string | null) => void;

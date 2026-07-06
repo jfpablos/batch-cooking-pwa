@@ -19,7 +19,7 @@ export function IngredientItem({ item, isFirst, onToggle }: IngredientItemProps)
       <button
         onClick={onToggle}
         style={{
-          all: 'unset' as any, cursor: 'pointer',
+          all: 'unset' as const, cursor: 'pointer',
           width: 24, height: 24, borderRadius: 8, flexShrink: 0,
           background: item.purchased ? 'var(--orange)' : 'transparent',
           border: '1.6px solid ' + (item.purchased ? 'var(--orange)' : 'var(--line-2)'),
@@ -34,8 +34,19 @@ export function IngredientItem({ item, isFirst, onToggle }: IngredientItemProps)
           fontSize: 13.5, fontWeight: 600,
           textDecoration: item.purchased ? 'line-through' : 'none',
           color: item.purchased ? 'var(--muted)' : 'var(--ink)',
+          display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
         }}>
           {item.name}
+          {item.inPantry && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+              textTransform: 'uppercase' as const,
+              background: 'rgba(127,203,74,0.15)', color: '#5A9A2E',
+              borderRadius: 999, padding: '2px 7px',
+            }}>
+              ya en casa
+            </span>
+          )}
         </div>
         {item.mealsContaining.length > 0 && !item.purchased && (
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>

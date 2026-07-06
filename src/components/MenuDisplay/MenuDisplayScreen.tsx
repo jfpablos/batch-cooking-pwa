@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingCart, RotateCcw, ArrowRight, Sparkles, MapPin } from 'lucide-react';
+import { ShoppingCart, RotateCcw, ArrowRight, Sparkles, MapPin, Zap } from 'lucide-react';
 import { RecipeDetailModal } from './RecipeDetailModal';
 import { useAppStore } from '../../store/useAppStore';
 import { menuService } from '../../services/menuService';
@@ -112,7 +112,7 @@ export function MenuDisplayScreen() {
                 key={key}
                 onClick={() => setDayIdx(i)}
                 style={{
-                  all: 'unset' as any,
+                  all: 'unset' as const,
                   flex: 1, minWidth: 0, height: 56, borderRadius: 14, cursor: 'pointer',
                   background: active ? 'var(--ink)' : 'var(--card)',
                   color: active ? 'var(--cream)' : 'var(--ink)',
@@ -207,15 +207,17 @@ export function MenuDisplayScreen() {
               );
             }
 
+            const recipe = getRecipe(meal.recipeName);
+            const isFresh = !!recipe && menuService.isFreshRecipe(recipe);
+
             return (
               <button
                 key={key}
                 onClick={() => {
-                  const recipe = getRecipe(meal.recipeName);
                   if (recipe) setSelectedRecipe(recipe);
                 }}
                 style={{
-                  all: 'unset' as any,
+                  all: 'unset' as const,
                   cursor: 'pointer',
                   width: '100%',
                   boxSizing: 'border-box' as const,
@@ -230,15 +232,26 @@ export function MenuDisplayScreen() {
                 <div className={`stripe stripe-${stripe}`} />
                 <div style={{ flex: 1, padding: '14px 14px 14px 12px', display: 'flex', gap: 12, alignItems: 'center' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', color, textTransform: 'uppercase' as const }}>{label}</span>
                       <span style={{ fontSize: 10.5, color: 'var(--muted-2)' }}>·</span>
                       <span className="num" style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{time}</span>
+                      {isFresh && (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 3,
+                          fontSize: 9.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' as const,
+                          background: 'rgba(20,184,166,0.12)', color: '#0D9488',
+                          borderRadius: 999, padding: '2px 7px',
+                        }}>
+                          <Zap size={9} strokeWidth={2.6} fill="currentColor" />
+                          al momento{recipe ? ` · ${recipe.prepTime + recipe.cookTime} min` : ''}
+                        </span>
+                      )}
                     </div>
                     <div className="display" style={{
                       fontSize: 15.5, marginTop: 3, letterSpacing: '-0.01em', lineHeight: 1.25,
                       overflow: 'hidden', textOverflow: 'ellipsis',
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any,
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
                     }}>
                       {meal.recipeName}
                     </div>

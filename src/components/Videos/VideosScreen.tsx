@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Play, X, RefreshCw } from 'lucide-react';
 import { VideoModal } from '../Common/VideoModal';
 import { useAppStore } from '../../store/useAppStore';
@@ -20,7 +20,7 @@ export function VideosScreen() {
 
   const isConfigured = youtubeService.isConfigured();
 
-  const loadVideos = async () => {
+  const loadVideos = useCallback(async () => {
     if (!isConfigured) return;
     setLoading(true);
     setError(null);
@@ -32,11 +32,11 @@ export function VideosScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isConfigured, setYoutubeVideos]);
 
   useEffect(() => {
     if (isConfigured && youtubeVideos.length === 0) loadVideos();
-  }, []);
+  }, [isConfigured, youtubeVideos.length, loadVideos]);
 
   const filteredVideos = search.trim()
     ? youtubeVideos.filter(v =>
@@ -97,7 +97,7 @@ export function VideosScreen() {
               }}
             />
             {search && (
-              <button onClick={() => setSearch('')} style={{ all: 'unset' as any, cursor: 'pointer', color: 'var(--muted)', lineHeight: 1 }}>
+              <button onClick={() => setSearch('')} style={{ all: 'unset' as const, cursor: 'pointer', color: 'var(--muted)', lineHeight: 1 }}>
                 <X size={14} />
               </button>
             )}
@@ -109,7 +109,7 @@ export function VideosScreen() {
             </span>
             <button
               onClick={() => { youtubeService.invalidateCache(); loadVideos(); }}
-              style={{ all: 'unset' as any, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)' }}
+              style={{ all: 'unset' as const, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)' }}
             >
               <RefreshCw size={12} /> Actualizar
             </button>
@@ -143,7 +143,7 @@ export function VideosScreen() {
                   key={v.id}
                   onClick={() => setSelectedVideo(v)}
                   style={{
-                    all: 'unset' as any, cursor: 'pointer', borderRadius: 14, overflow: 'hidden',
+                    all: 'unset' as const, cursor: 'pointer', borderRadius: 14, overflow: 'hidden',
                     background: 'var(--card)', border: '1px solid var(--line)',
                   }}
                 >
@@ -175,7 +175,7 @@ export function VideosScreen() {
                     <div className="display" style={{
                       fontSize: 12.5, lineHeight: 1.3,
                       overflow: 'hidden', textOverflow: 'ellipsis',
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any,
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
                       minHeight: 32,
                     }}>
                       {v.title}

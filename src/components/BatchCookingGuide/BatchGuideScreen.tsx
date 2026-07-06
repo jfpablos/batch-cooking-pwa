@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Play, Timer, Check, Sparkles, ArrowRight, ArrowLeft, RotateCcw } from 'lucide-react';
+import { Play, Pause, Timer, Check, Sparkles, ArrowRight, ArrowLeft, RotateCcw, Flame, UtensilsCrossed, Zap } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
+import { menuService } from '../../services/menuService';
+import { storageService } from '../../services/storageService';
+import { STORAGE_KEYS } from '../../utils/storageKeys';
+import { buildBasicConservationPlan } from '../../utils/conservationFallback';
+import { useTimer, formatTimer } from '../../hooks/useTimer';
+import { unlockAudio } from '../../utils/alarm';
+import { ConservationCard } from './ConservationCard';
+import type { BaseRecipe, BatchProgress, ConservationEntry } from '../../types';
 
 interface NormTask {
   order: number;
@@ -8,6 +16,9 @@ interface NormTask {
   note: string;
   dur: number;
   parallel: number | null;
+  steps?: string[];
+  seasoning?: string;
+  equipment?: string;
 }
 
 // Fallback guide for menus generated from the base recipe bank (no AI batch guide).
@@ -32,11 +43,18 @@ const DEFAULT_TASKS: NormTask[] = [
     note: 'Etiquetar L–V por comida. Salsas en bote aparte.' },
 ];
 
+function loadProgress(): BatchProgress | null {
+  const menu = useAppStore.getState().currentMenu;
+  const p = storageService.get<BatchProgress>(STORAGE_KEYS.BATCH_PROGRESS);
+  return p && menu && p.menuId === menu.id ? p : null;
+}
+
 export function BatchGuideScreen() {
-  const { currentMenu, batchGuide, setActiveTab } = useAppStore();
-  const [done, setDone] = useState<Set<number>>(new Set());
-  const [cooking, setCooking] = useState(false);
-  const [current, setCurrent] = useState<number | null>(null);
+  const { currentMenu, batchGuide, setActiveTab, startTimer, pauseTimer, resumeTimer, resetTimer } = useAppStore();
+  const { activeTimer, remaining } = useTimer();
+  const [done, setDone] = useState<Set<number>>(() => new Set(loadProgress()?.done ?? []));
+  const [cooking, setCooking] = useState(() => loadProgress()?.cooking ?? false);
+  const [current, setCurrent] = useState<number | null>(() => loadProgress()?.current ?? null);
 
   // Scroll the active task into view when step-by-step mode advances.
   useEffect(() => {
@@ -45,6 +63,13 @@ export function BatchGuideScreen() {
       .getElementById(`batch-task-${current}`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [current]);
+
+  // Persist progress so it survives tab switches and reloads.
+  useEffect(() => {
+    if (!currentMenu) return;
+    const progress: BatchProgress = { menuId: currentMenu.id, done: [...done], current, cooking };
+    storageService.set(STORAGE_KEYS.BATCH_PROGRESS, progress);
+  }, [done, current, cooking, currentMenu]);
 
   if (!currentMenu) {
     return (
@@ -73,15 +98,35 @@ export function BatchGuideScreen() {
     );
   }
 
+  // Recetas "al momento": se hacen frescas en el día, no entran en el batch.
+  const freshRecipes: BaseRecipe[] = menuService.buildRecipeSchedule(currentMenu)
+    .map(s => currentMenu.recipes.find(r => r.name === s.recipeName))
+    .filter((r): r is BaseRecipe => !!r && menuService.isFreshRecipe(r));
+  const freshNames = new Set(freshRecipes.map(r => r.name));
+
   // Use the AI-generated guide when it matches the current menu; otherwise fall back.
   const usingGuide = !!batchGuide && batchGuide.menuId === currentMenu.id && batchGuide.tasks.length > 0;
-  const tasks: NormTask[] = (usingGuide ? batchGuide!.tasks.map(t => ({
+  const tasks: NormTask[] = (usingGuide ? batchGuide!.tasks
+    // Oculta tareas que solo preparan recetas al momento (guías antiguas)
+    .filter(t => !(t.recipeNames?.length && t.recipeNames.every(n => freshNames.has(n))))
+    .map(t => ({
     order: t.order,
     title: t.title,
     note: t.description,
     dur: t.duration,
     parallel: t.parallelWith,
+    steps: t.steps,
+    seasoning: t.seasoning,
+    equipment: t.equipment,
   })) : DEFAULT_TASKS).slice().sort((a, b) => a.order - b.order);
+
+  // Plan de conservación: el detallado de la IA si existe; si no, derivado
+  // de los campos storage de las recetas del menú actual.
+  const conservationEntries: ConservationEntry[] = (
+    usingGuide && batchGuide!.conservationPlan?.length
+      ? batchGuide!.conservationPlan
+      : buildBasicConservationPlan(currentMenu)
+  ).filter(e => !freshNames.has(e.recipeName));
 
   const nextPending = (doneSet: Set<number>): number | null =>
     tasks.find(t => !doneSet.has(t.order))?.order ?? null;
@@ -101,6 +146,7 @@ export function BatchGuideScreen() {
     const s = new Set(done);
     s.add(current);
     setDone(s);
+    if (activeTimer?.taskOrder === current) resetTimer();
     const next = nextPending(s);
     setCurrent(next);
     if (next == null) setCooking(false); // finished the whole route
@@ -126,9 +172,15 @@ export function BatchGuideScreen() {
 
   const toggle = (n: number) => setDone(prev => {
     const s = new Set(prev);
-    s.has(n) ? s.delete(n) : s.add(n);
+    if (s.has(n)) s.delete(n);
+    else s.add(n);
     return s;
   });
+
+  const handleStartTimer = (t: NormTask) => {
+    unlockAudio();
+    startTimer(t.order, t.dur * 60);
+  };
 
   const totalTasks = tasks.length;
   const totalDone = done.size;
@@ -136,6 +188,8 @@ export function BatchGuideScreen() {
   const totalMin = usingGuide ? batchGuide!.estimatedTotalTime : tasks.reduce((a, t) => a + t.dur, 0);
   const hrs = Math.floor(totalMin / 60);
   const mins = totalMin % 60;
+
+  const timerTask = activeTimer ? tasks.find(t => t.order === activeTimer.taskOrder) : null;
 
   return (
     <div
@@ -173,6 +227,23 @@ export function BatchGuideScreen() {
           <div className="bar" style={{ marginTop: 14, background: 'rgba(255,255,255,0.18)' }}>
             <i style={{ width: pct + '%', background: '#fff' }} />
           </div>
+
+          {/* Active timer pill */}
+          {activeTimer && timerTask && (
+            <div style={{
+              marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '5px 10px', borderRadius: 999,
+              background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.25)',
+              fontSize: 11.5, fontWeight: 700,
+            }}>
+              <Timer size={12} strokeWidth={2.2} />
+              Tarea {timerTask.order} ·{' '}
+              <span className="num" style={{ fontFamily: 'var(--ff-mono)' }}>
+                {activeTimer.status === 'finished' ? '0:00 ✓' : formatTimer(remaining)}
+              </span>
+              {activeTimer.status === 'paused' && ' (pausa)'}
+            </div>
+          )}
 
           <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
             {cooking && (
@@ -226,7 +297,9 @@ export function BatchGuideScreen() {
             RUTA
           </span>
           <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-          <span className="display" style={{ fontSize: 13 }}>{usingGuide ? 'Generada por IA' : 'Guía base'}</span>
+          <span className="display" style={{ fontSize: 13 }}>
+            {usingGuide ? (batchGuide!.detailLevel === 'detailed' ? 'Detallada por IA' : 'Generada por IA') : 'Guía base'}
+          </span>
         </div>
 
         <div style={{ position: 'relative' }}>
@@ -234,6 +307,10 @@ export function BatchGuideScreen() {
           {tasks.map((t) => {
             const isDone = done.has(t.order);
             const isCurrent = cooking && current === t.order;
+            const isTimerTask = activeTimer?.taskOrder === t.order;
+            const timerRunning = isTimerTask && activeTimer!.status === 'running';
+            const timerPaused = isTimerTask && activeTimer!.status === 'paused';
+            const timerFinished = isTimerTask && activeTimer!.status === 'finished';
             return (
               <div key={t.order} id={`batch-task-${t.order}`} style={{ position: 'relative', paddingLeft: 50, paddingBottom: 12 }}>
                 {/* Node */}
@@ -250,10 +327,13 @@ export function BatchGuideScreen() {
                   {isDone ? <Check size={12} strokeWidth={3} /> : t.order}
                 </div>
 
-                <button
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => toggle(t.order)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(t.order); } }}
                   style={{
-                    all: 'unset' as any, cursor: 'pointer', width: '100%', boxSizing: 'border-box' as const,
+                    cursor: 'pointer', width: '100%', boxSizing: 'border-box' as const,
                     background: isCurrent ? 'rgba(255,107,53,0.07)' : 'var(--card)',
                     border: '1px solid ' + (isCurrent ? 'var(--orange)' : 'var(--line)'), borderRadius: 14,
                     padding: '10px 12px', display: 'block',
@@ -272,11 +352,109 @@ export function BatchGuideScreen() {
                     }}>
                       {t.title}
                     </span>
-                    <span className="num" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--orange)', fontFamily: 'var(--ff-mono)', flexShrink: 0 }}>
-                      <Timer size={12} strokeWidth={2.2} /> {t.dur}m
-                    </span>
+
+                    {/* Timer chip / controls */}
+                    {isTimerTask ? (
+                      <span
+                        onClick={e => e.stopPropagation()}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0 }}
+                      >
+                        <span className="num" style={{
+                          fontSize: 13, fontWeight: 700, fontFamily: 'var(--ff-mono)',
+                          color: timerFinished ? '#5A9A2E' : remaining < 60 && timerRunning ? '#DC2626' : 'var(--orange)',
+                        }}>
+                          {timerFinished ? '¡Fin!' : formatTimer(remaining)}
+                        </span>
+                        {!timerFinished && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              if (timerPaused) resumeTimer();
+                              else pauseTimer();
+                            }}
+                            aria-label={timerPaused ? 'Reanudar temporizador' : 'Pausar temporizador'}
+                            style={{
+                              all: 'unset' as const, cursor: 'pointer',
+                              width: 30, height: 30, borderRadius: 9,
+                              background: 'rgba(255,107,53,0.12)', color: 'var(--orange-2)',
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            {timerPaused ? <Play size={13} fill="currentColor" stroke="none" /> : <Pause size={13} fill="currentColor" stroke="none" />}
+                          </button>
+                        )}
+                        <button
+                          onClick={e => { e.stopPropagation(); resetTimer(); }}
+                          aria-label="Descartar temporizador"
+                          style={{
+                            all: 'unset' as const, cursor: 'pointer',
+                            width: 30, height: 30, borderRadius: 9,
+                            background: 'var(--cream-2)', color: 'var(--muted)',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <RotateCcw size={13} strokeWidth={2.2} />
+                        </button>
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                        <span className="num" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: 'var(--orange)', fontFamily: 'var(--ff-mono)' }}>
+                          <Timer size={12} strokeWidth={2.2} /> {t.dur}m
+                        </span>
+                        {!isDone && t.dur > 0 && (
+                          <button
+                            onClick={e => { e.stopPropagation(); handleStartTimer(t); }}
+                            aria-label={`Iniciar temporizador de ${t.dur} minutos`}
+                            title={`Temporizador ${t.dur} min`}
+                            style={{
+                              all: 'unset' as const, cursor: 'pointer',
+                              width: 30, height: 30, borderRadius: 9,
+                              background: 'rgba(255,107,53,0.12)', color: 'var(--orange-2)',
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            <Play size={13} fill="currentColor" stroke="none" />
+                          </button>
+                        )}
+                      </span>
+                    )}
                   </div>
+
                   {t.note && <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 5, lineHeight: 1.4 }}>{t.note}</div>}
+
+                  {/* v2 detail: equipment / seasoning / sub-steps */}
+                  {t.equipment && (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginTop: 7, fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.4 }}>
+                      <UtensilsCrossed size={12} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <span>{t.equipment}</span>
+                    </div>
+                  )}
+                  {t.seasoning && (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginTop: 5, fontSize: 11.5, lineHeight: 1.4, color: 'var(--orange-2)' }}>
+                      <Flame size={12} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <span><strong>Sazón:</strong> {t.seasoning}</span>
+                    </div>
+                  )}
+                  {t.steps && t.steps.length > 0 && (
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--line-2)' }}>
+                      {t.steps.map((step, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: i ? 6 : 0 }}>
+                          <span className="num" style={{
+                            width: 17, height: 17, borderRadius: 999, flexShrink: 0, marginTop: 1,
+                            background: 'var(--cream-2)', border: '1px solid var(--line)',
+                            color: 'var(--ink-2)', fontSize: 9.5, fontWeight: 700,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {i + 1}
+                          </span>
+                          <span style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--ink-2)' }}>
+                            {step.replace(/^\d+[.)]\s*/, '')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {t.parallel && (
                     <div style={{
                       marginTop: 7, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px',
@@ -286,29 +464,75 @@ export function BatchGuideScreen() {
                       ⇄ paralelo con tarea {t.parallel}
                     </div>
                   )}
-                </button>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* ── Storage guide ── */}
-      <div style={{ padding: '8px 18px 28px' }}>
-        <div style={{ padding: 14, borderRadius: 14, background: 'var(--cream-2)', border: '1px solid var(--line-2)' }}>
-          <div className="eyebrow" style={{ fontSize: 10, marginBottom: 8 }}>Conservación</div>
-          {[
-            ['Proteínas cocinadas', '4–5 días nevera'],
-            ['Cereales cocidos',    '4–5 días nevera'],
-            ['Verduras salteadas',  '3–4 días nevera'],
-            ['Pescado cocinado',    '2–3 días nevera'],
-          ].map(([k, v], i) => (
-            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: i ? '1px solid var(--line)' : 'none' }}>
-              <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>{k}</span>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{v}</span>
+      {/* ── Al momento (no entra en el batch) ── */}
+      {freshRecipes.length > 0 && (
+        <div style={{ padding: '8px 18px 0' }}>
+          <div style={{
+            padding: '12px 14px', borderRadius: 14,
+            background: 'rgba(20,184,166,0.07)', border: '1px solid rgba(20,184,166,0.2)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Zap size={13} strokeWidth={2.4} style={{ color: '#0D9488' }} fill="currentColor" />
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#0D9488' }}>
+                Al momento · no entra en el batch
+              </span>
             </div>
-          ))}
+            {freshRecipes.map((r, i) => (
+              <div key={r.name} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+                padding: '7px 0', borderTop: i ? '1px dashed rgba(20,184,166,0.2)' : 'none',
+              }}>
+                <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flex: 1, minWidth: 0 }}>{r.name}</span>
+                <span className="num" style={{ fontSize: 11, fontWeight: 700, color: '#0D9488', fontFamily: 'var(--ff-mono)', flexShrink: 0 }}>
+                  {r.prepTime + r.cookTime} min
+                </span>
+              </div>
+            ))}
+            <p style={{ margin: '8px 0 0', fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.4 }}>
+              Estas recetas se preparan frescas cada día en pocos minutos. Sus ingredientes sí están en la lista de la compra.
+            </p>
+          </div>
         </div>
+      )}
+
+      {/* ── Conservation plan ── */}
+      <div style={{ padding: '8px 18px 28px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>
+          <span className="num" style={{ fontFamily: 'var(--ff-display)', fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.14em' }}>
+            CONSERVACIÓN
+          </span>
+          <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+          <span className="display" style={{ fontSize: 13 }}>
+            {usingGuide && batchGuide!.conservationPlan?.length ? 'Plan por receta' : 'Orientativa'}
+          </span>
+        </div>
+
+        {conservationEntries.length > 0 ? (
+          conservationEntries.map(entry => (
+            <ConservationCard key={entry.recipeName} entry={entry} />
+          ))
+        ) : (
+          <div style={{ marginTop: 10, padding: 14, borderRadius: 14, background: 'var(--cream-2)', border: '1px solid var(--line-2)' }}>
+            {[
+              ['Proteínas cocinadas', '4–5 días nevera'],
+              ['Cereales cocidos',    '4–5 días nevera'],
+              ['Verduras salteadas',  '3–4 días nevera'],
+              ['Pescado cocinado',    '2–3 días nevera'],
+            ].map(([k, v], i) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: i ? '1px solid var(--line)' : 'none' }}>
+                <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>{k}</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

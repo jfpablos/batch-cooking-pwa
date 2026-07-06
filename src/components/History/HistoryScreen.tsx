@@ -74,7 +74,7 @@ export function HistoryScreen() {
           <button
             onClick={handleClear}
             style={{
-              all: 'unset' as any, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+              all: 'unset' as const, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
               fontSize: 12, fontWeight: 700, color: '#EF4444', padding: '8px 12px',
               background: 'rgba(239,68,68,0.08)', borderRadius: 10, border: '1px solid rgba(239,68,68,0.2)',
             }}

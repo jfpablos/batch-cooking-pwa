@@ -1,10 +1,13 @@
 import type { YouTubeVideo, YouTubeCache } from '../types';
 import { STORAGE_KEYS } from '../utils/storageKeys';
+import { normalizeText } from '../utils/textUtils';
 
 const YT_API_BASE = 'https://www.googleapis.com/youtube/v3';
 const PLAYLIST_ID = import.meta.env.VITE_YOUTUBE_PLAYLIST_ID as string;
 const YT_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string;
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 días
+// v2: añade "description" a los vídeos cacheados
+const CACHE_VERSION = 2;
 
 export class YouTubeService {
 
@@ -57,6 +60,7 @@ export class YouTubeService {
               id: resourceId.videoId as string,
               title: snippet.title as string,
               thumbnail: thumbnails?.medium?.url || thumbnails?.default?.url || '',
+              description: ((snippet.description as string) || '').slice(0, 250),
             });
           }
         });
@@ -77,13 +81,7 @@ export class YouTubeService {
   findMatchingVideo(recipeName: string, videos: YouTubeVideo[]): YouTubeVideo | null {
     if (!videos.length) return null;
 
-    const normalize = (str: string) =>
-      str.toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9\s]/g, ' ');
-
-    const recipeWords = normalize(recipeName)
+    const recipeWords = normalizeText(recipeName)
       .split(/\s+/)
       .filter(w => w.length > 3);
 
@@ -93,7 +91,7 @@ export class YouTubeService {
     let bestScore = 0;
 
     for (const video of videos) {
-      const videoTitle = normalize(video.title);
+      const videoTitle = normalizeText(video.title);
       const score = recipeWords.filter(word => videoTitle.includes(word)).length;
       if (score > bestScore && score >= 1) {
         bestScore = score;
@@ -120,7 +118,10 @@ export class YouTubeService {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.YT_VIDEOS_CACHE);
       if (!raw) return null;
-      const { videos, timestamp }: YouTubeCache = JSON.parse(raw);
+      const { videos, timestamp, version }: YouTubeCache = JSON.parse(raw);
+      // Caché de versión antigua: forzar refetch, salvo como fallback stale
+      // (description es opcional en todos los consumidores).
+      if (!ignoreExpiry && version !== CACHE_VERSION) return null;
       if (!ignoreExpiry && Date.now() - timestamp > CACHE_TTL) return null;
       return videos;
     } catch {
@@ -130,7 +131,7 @@ export class YouTubeService {
 
   private saveCache(videos: YouTubeVideo[]): void {
     try {
-      const cache: YouTubeCache = { videos, timestamp: Date.now() };
+      const cache: YouTubeCache = { videos, timestamp: Date.now(), version: CACHE_VERSION };
       localStorage.setItem(STORAGE_KEYS.YT_VIDEOS_CACHE, JSON.stringify(cache));
     } catch {
       // silent — cache not critical

@@ -10,6 +10,7 @@ import type {
   RecipeCategory,
   MealKey,
   MealSelection,
+  RecipeScheduleEntry,
 } from '../types';
 import { recipeService } from './recipeService';
 import { buildFullSelection } from '../utils/prompts';
@@ -76,6 +77,7 @@ function geminiRecipeToBase(gr: GeneratedMenuResponse['recipes'][0]): BaseRecipe
     batchMultiplier: 5,
     batchNotes: gr.batchNotes,
     source: 'gemini',
+    prepStyle: gr.prepStyle,
   };
 }
 
@@ -211,6 +213,38 @@ export const menuService = {
       recipes: recipeService.getAll(),
       source: 'base',
     };
+  },
+
+  /**
+   * Receta "al momento": se hace fresca en el día, no entra en el batch del
+   * domingo (batidos, gachas de avena...). Usa el prepStyle asignado por la
+   * IA; para recetas antiguas o del banco base, heurística por tiempo total.
+   */
+  isFreshRecipe(recipe: BaseRecipe): boolean {
+    if (recipe.prepStyle) return recipe.prepStyle === 'al-momento';
+    return recipe.prepTime + recipe.cookTime <= 12;
+  },
+
+  /**
+   * Calendario de consumo: para cada receta del menú, en qué días/comidas
+   * se come. Solo incluye recetas realmente planificadas (no skipped).
+   */
+  buildRecipeSchedule(menu: WeeklyMenu): RecipeScheduleEntry[] {
+    const map = new Map<string, RecipeScheduleEntry>();
+    const mealKeys: MealKey[] = ['desayuno', 'preEntreno', 'principal', 'postEntreno', 'cena'];
+    for (const day of menu.days) {
+      for (const key of mealKeys) {
+        const meal = day.meals[key];
+        if (meal.isSkipped) continue;
+        let entry = map.get(meal.recipeName);
+        if (!entry) {
+          entry = { recipeName: meal.recipeName, occurrences: [] };
+          map.set(meal.recipeName, entry);
+        }
+        entry.occurrences.push({ day: day.day, meal: key });
+      }
+    }
+    return Array.from(map.values());
   },
 
   getAllRecipeNames(menu: WeeklyMenu): string[] {
