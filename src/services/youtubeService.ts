@@ -73,8 +73,10 @@ export class YouTubeService {
     } catch (error) {
       console.error('[YouTube] Error cargando playlist:', error);
       const staleCache = this.getCached(true);
-      if (staleCache) return staleCache;
-      return [];
+      if (staleCache && staleCache.length > 0) return staleCache;
+      // Sin caché de respaldo: propagar para que la UI muestre el motivo
+      // (p. ej. "API key not valid") en vez de una lista vacía en silencio.
+      throw error;
     }
   }
 
