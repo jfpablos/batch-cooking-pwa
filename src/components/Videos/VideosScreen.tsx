@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Play, X, RefreshCw } from 'lucide-react';
+import { Search, Play, X, RefreshCw, Sparkles } from 'lucide-react';
 import { VideoModal } from '../Common/VideoModal';
 import { useAppStore } from '../../store/useAppStore';
 import { youtubeService } from '../../services/youtubeService';
+import { geminiService } from '../../services/geminiService';
 import { videoRecipeService } from '../../services/videoRecipeService';
+import type { AnalyzeProgress } from '../../services/videoRecipeService';
 import type { YouTubeVideo } from '../../types';
 
 // Tones for video thumbnail placeholders when no thumbnail available
@@ -13,21 +15,40 @@ const TONES = [
 ];
 
 export function VideosScreen() {
-  const { youtubeVideos, setYoutubeVideos } = useAppStore();
+  const { youtubeVideos, setYoutubeVideos, showToast } = useAppStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(null);
+  const [analyzing, setAnalyzing] = useState<AnalyzeProgress | null>(null);
 
   const isConfigured = youtubeService.isConfigured();
 
-  // Registro de recetas por vídeo (extraído por la IA durante la generación)
+  // Registro de recetas por vídeo (la IA analiza el contenido de cada vídeo)
   const recipesByVideo = new Map<string, string[]>();
   for (const entry of videoRecipeService.getCachedCatalog()) {
     const list = recipesByVideo.get(entry.videoId) ?? [];
     list.push(entry.name);
     recipesByVideo.set(entry.videoId, list);
   }
+  const pendingVideos = videoRecipeService.getPendingVideos(youtubeVideos);
+  const canAnalyze = geminiService.isConfigured() && pendingVideos.length > 0;
+
+  const handleAnalyze = async () => {
+    if (analyzing) return;
+    setAnalyzing({ done: 0, total: pendingVideos.length, currentTitle: '' });
+    try {
+      const res = await videoRecipeService.analyzePending(youtubeVideos, p => setAnalyzing({ ...p }));
+      showToast(
+        res.analyzed > 0
+          ? `${res.recipesFound} receta${res.recipesFound === 1 ? '' : 's'} extraída${res.recipesFound === 1 ? '' : 's'} de ${res.analyzed} vídeo${res.analyzed === 1 ? '' : 's'}${res.failed ? ` · ${res.failed} fallido${res.failed === 1 ? '' : 's'}` : ''}`
+          : 'No se pudo analizar ningún vídeo — revisa la consola',
+        res.analyzed > 0 ? 'success' : 'error'
+      );
+    } finally {
+      setAnalyzing(null);
+    }
+  };
 
   const loadVideos = useCallback(async () => {
     if (!isConfigured) return;
@@ -123,6 +144,48 @@ export function VideosScreen() {
               <RefreshCw size={12} /> Actualizar
             </button>
           </div>
+
+          {/* Análisis de recetas de los vídeos (contenido, no descripción) */}
+          {analyzing ? (
+            <div style={{
+              marginTop: 10, padding: '10px 12px', borderRadius: 12,
+              background: 'rgba(255,107,53,0.07)', border: '1px solid rgba(255,107,53,0.25)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, color: 'var(--orange-2)' }}>
+                <span style={{
+                  width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+                  border: '2px solid rgba(255,107,53,0.25)', borderTopColor: 'var(--orange)',
+                  animation: 'spin 0.8s linear infinite', display: 'inline-block',
+                }} />
+                Analizando vídeo {Math.min(analyzing.done + 1, analyzing.total)} de {analyzing.total}…
+              </div>
+              {analyzing.currentTitle && (
+                <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {analyzing.currentTitle}
+                </div>
+              )}
+              <div className="bar" style={{ marginTop: 8 }}>
+                <i style={{ width: `${analyzing.total ? Math.round(analyzing.done / analyzing.total * 100) : 0}%` }} />
+              </div>
+              <p style={{ margin: '6px 0 0', fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.4 }}>
+                La IA está viendo cada vídeo para extraer sus recetas (~1 min por vídeo). Puedes salir de esta pestaña: el progreso se guarda vídeo a vídeo.
+              </p>
+            </div>
+          ) : canAnalyze ? (
+            <button
+              onClick={handleAnalyze}
+              style={{
+                marginTop: 10, width: '100%', minHeight: 44, boxSizing: 'border-box' as const,
+                background: 'rgba(255,107,53,0.1)', color: 'var(--orange-2)',
+                border: '1px solid rgba(255,107,53,0.3)', borderRadius: 12,
+                fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 13.5,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer',
+              }}
+            >
+              <Sparkles size={15} strokeWidth={2} />
+              Analizar recetas de {pendingVideos.length} vídeo{pendingVideos.length === 1 ? '' : 's'}
+            </button>
+          ) : null}
         </div>
 
         {/* ── Grid ── */}

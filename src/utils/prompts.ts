@@ -103,9 +103,10 @@ Inclúyelos igualmente en los "ingredients" de cada receta con su cantidad exact
 
 const buildVideoRecipesSection = (videoRecipes: VideoRecipe[]): string => {
   if (videoRecipes.length === 0) return '';
-  const lines = videoRecipes.map((r, i) =>
-    `${i + 1}. "${r.name}"${r.type === 'rapida' ? ' (rápida)' : ''} — del vídeo "${r.videoTitle}" [videoId: ${r.videoId}]`
-  );
+  const lines = videoRecipes.map((r, i) => {
+    const ingredients = r.mainIngredients?.length ? ` · ingredientes: ${r.mainIngredients.join(', ')}` : '';
+    return `${i + 1}. "${r.name}"${r.type === 'rapida' ? ' (rápida)' : ''}${ingredients} — del vídeo "${r.videoTitle}" [videoId: ${r.videoId}]`;
+  });
   return `
 RECETAS DE LOS VÍDEOS DEL USUARIO (extraídas de su playlist de batch cooking en YouTube):
 ${lines.join('\n')}
@@ -368,46 +369,34 @@ IMPORTANTE:
 };
 
 // =============================================
-// EXTRACCIÓN DE RECETAS DE LOS VÍDEOS (catálogo)
+// ANÁLISIS DEL CONTENIDO DE UN VÍDEO (catálogo de recetas)
 // =============================================
 
-export const GEMINI_VIDEO_CATALOG_SYSTEM_PROMPT = `Eres un asistente que cataloga recetas de vídeos de cocina de YouTube.
-Recibirás una lista de vídeos (título + descripción) de una playlist de batch cooking y recetas rápidas.
-Muchos vídeos son recopilatorios y contienen VARIAS recetas (suelen listarse en la descripción,
-a menudo con timestamps). Tu trabajo: extraer TODAS las recetas identificables de cada vídeo.
+export const GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT = `Eres un asistente que cataloga recetas de vídeos de cocina de YouTube.
+Recibirás UN vídeo. Analiza su contenido completo (lo que se dice y lo que se ve) y extrae
+TODAS las recetas que se elaboran en él. Muchos vídeos son recopilatorios con varias recetas.
 FORMATO DE RESPUESTA: JSON válido según el esquema del prompt. Sin markdown ni texto extra.`;
 
-export const generateVideoCatalogPrompt = (
-  videos: { id: string; title: string; description?: string }[]
-): string => {
-  const blocks = videos.map((v, i) => `${i + 1}. [videoId: ${v.id}]
-Título: ${v.title}${v.description?.trim() ? `\nDescripción: ${v.description.trim()}` : ''}`);
-
-  return `
-Extrae las recetas de estos ${videos.length} vídeos de cocina:
-
-${blocks.join('\n\n')}
+export const generateVideoAnalysisPrompt = (videoTitle: string): string => `
+Analiza este vídeo de cocina titulado "${videoTitle}" y extrae todas las recetas que se elaboran en él.
 
 INSTRUCCIONES:
-- Extrae TODAS las recetas identificables de cada vídeo (título + descripción, incluidos
-  los listados con timestamps de los recopilatorios)
+- Extrae TODAS las recetas que se cocinan en el vídeo, en orden de aparición
 - Nombra cada receta de forma clara y completa en español (ej: "Pollo al curry con arroz basmati",
-  no "receta 2" ni "0:45")
-- "type": "batch" si es apta para preparar el domingo y conservar varios días, "rapida" si es
-  una receta exprés que se hace al momento
-- Si de un vídeo no puedes identificar recetas concretas, deduce UNA del título
-- NO inventes recetas que no se mencionen en el título o la descripción
+  no "receta 2" ni "primera elaboración")
+- "type": "batch" si la receta es apta para prepararse el domingo y conservarse varios días,
+  "rapida" si es una receta exprés que se hace al momento
+- "mainIngredients": los 3-6 ingredientes principales tal y como se usan en el vídeo
+- NO inventes recetas que no aparezcan en el vídeo
 
 ESTRUCTURA REQUERIDA DEL JSON (responde EXACTAMENTE con este formato):
 {
-  "videos": [
+  "recipes": [
     {
-      "videoId": "el videoId indicado entre corchetes",
-      "recipes": [
-        { "name": "Nombre claro de la receta", "type": "batch" }
-      ]
+      "name": "Nombre claro de la receta",
+      "type": "batch",
+      "mainIngredients": ["pechuga de pollo", "arroz basmati", "leche de coco"]
     }
   ]
 }
 `;
-};

@@ -3,10 +3,10 @@ import type { GenerationConfig } from '@google/generative-ai';
 import {
   GEMINI_SYSTEM_PROMPT,
   GEMINI_GUIDE_SYSTEM_PROMPT,
-  GEMINI_VIDEO_CATALOG_SYSTEM_PROMPT,
+  GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT,
   generateMenuPrompt,
   generateBatchGuidePrompt,
-  generateVideoCatalogPrompt,
+  generateVideoAnalysisPrompt,
   buildFullSelection,
 } from '../utils/prompts';
 import type { MenuPromptOptions } from '../utils/prompts';
@@ -183,54 +183,56 @@ export class GeminiService {
   }
 
   /**
-   * Extrae las recetas contenidas en los vídeos de la playlist (título +
-   * descripción; los recopilatorios listan varias recetas por vídeo).
-   * Un solo intento: el catálogo es opcional y se cachea.
+   * Analiza el CONTENIDO de un vídeo de YouTube (audio + imagen, vía URL) y
+   * extrae las recetas que se elaboran en él. Las descripciones no bastan:
+   * en los recopilatorios las recetas solo están dentro del vídeo.
+   * Puede tardar 30-90s por vídeo; el llamante gestiona el progreso.
    */
-  async extractVideoRecipes(videos: YouTubeVideo[]): Promise<VideoRecipe[]> {
+  async extractRecipesFromVideo(video: YouTubeVideo): Promise<VideoRecipe[]> {
     const genAI = this.getGenAI();
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
       generationConfig: {
         responseMimeType: 'application/json',
         temperature: 0.2,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 4096,
         thinkingConfig: { thinkingBudget: 0 },
-      } as ThinkingGenerationConfig,
-      systemInstruction: GEMINI_VIDEO_CATALOG_SYSTEM_PROMPT,
-    }, { timeout: 90000 });
+        // Resolución baja: suficiente para identificar recetas y reduce
+        // mucho los tokens de vídeo consumidos.
+        mediaResolution: 'MEDIA_RESOLUTION_LOW',
+      } as ThinkingGenerationConfig & { mediaResolution?: string },
+      systemInstruction: GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT,
+    }, { timeout: 240000 });
 
-    // Acota el tamaño del prompt: hasta 40 vídeos con descripción recortada
-    const input = videos.slice(0, 40).map(v => ({
-      id: v.id,
-      title: v.title,
-      description: v.description?.slice(0, 1500),
-    }));
+    const result = await model.generateContent([
+      {
+        fileData: {
+          fileUri: `https://www.youtube.com/watch?v=${video.id}`,
+          mimeType: 'video/*',
+        },
+      },
+      { text: generateVideoAnalysisPrompt(video.title) },
+    ]);
 
-    const result = await model.generateContent(generateVideoCatalogPrompt(input));
     const parsed = JSON.parse(result.response.text()) as {
-      videos?: { videoId?: string; recipes?: { name?: string; type?: string }[] }[];
+      recipes?: { name?: string; type?: string; mainIngredients?: string[] }[];
     };
 
-    if (!Array.isArray(parsed.videos)) {
-      throw new Error('Catálogo de vídeos con formato inesperado');
+    if (!Array.isArray(parsed.recipes)) {
+      throw new Error(`Análisis del vídeo "${video.title}" con formato inesperado`);
     }
 
-    const titleById = new Map(videos.map(v => [v.id, v.title]));
-    const entries: VideoRecipe[] = [];
-    for (const v of parsed.videos) {
-      if (!v.videoId || !titleById.has(v.videoId)) continue;
-      for (const r of v.recipes ?? []) {
-        if (!r.name || typeof r.name !== 'string') continue;
-        entries.push({
-          name: r.name,
-          videoId: v.videoId,
-          videoTitle: titleById.get(v.videoId)!,
-          type: r.type === 'rapida' ? 'rapida' : 'batch',
-        });
-      }
-    }
-    return entries;
+    return parsed.recipes
+      .filter(r => r.name && typeof r.name === 'string')
+      .map(r => ({
+        name: r.name!,
+        videoId: video.id,
+        videoTitle: video.title,
+        type: r.type === 'rapida' ? 'rapida' : 'batch',
+        mainIngredients: Array.isArray(r.mainIngredients)
+          ? r.mainIngredients.filter((i): i is string => typeof i === 'string').slice(0, 6)
+          : undefined,
+      }));
   }
 }
 

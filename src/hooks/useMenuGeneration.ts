@@ -65,14 +65,10 @@ export function useMenuGeneration() {
 
       if (geminiService.isConfigured()) {
         try {
-          // Catálogo de recetas por vídeo (cacheado; se construye con Gemini
-          // la primera vez o cuando cambia la playlist). Si falla, se usa el
-          // fallback de títulos+descripciones.
-          setGenerating(true, 'Analizando recetas de tus vídeos...', 5);
-          const videoRecipes = await videoRecipeService.getCatalog().catch(err => {
-            console.warn('[MenuGen] Catálogo de vídeos no disponible:', err);
-            return [] as Awaited<ReturnType<typeof videoRecipeService.getCatalog>>;
-          });
+          // Catálogo de recetas por vídeo: se construye bajo demanda desde la
+          // pestaña Vídeos (analizar cada vídeo tarda ~1 min); aquí solo se
+          // lee lo acumulado. Sin catálogo, fallback de títulos+descripciones.
+          const videoRecipes = videoRecipeService.getCachedCatalog();
           const videoRecipesSample = shuffle(videoRecipes).slice(0, MAX_VIDEO_RECIPES);
 
           let inspirationVideos: { title: string; description?: string }[] = [];

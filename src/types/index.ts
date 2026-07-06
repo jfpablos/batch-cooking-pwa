@@ -301,12 +301,13 @@ export interface VideoRecipe {
   videoId: string;
   videoTitle: string;
   type?: 'batch' | 'rapida';
+  mainIngredients?: string[];
 }
 
 export interface VideoRecipeCatalog {
   entries: VideoRecipe[];
   builtAt: number;
-  videoIds: string[];  // ids de la playlist con la que se construyó
+  analyzedIds: string[];  // vídeos ya analizados (análisis incremental)
 }
 
 // =============================================
