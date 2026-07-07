@@ -4,6 +4,7 @@ import { useHistoryRotation } from '../../hooks/useHistoryRotation';
 import { storageService } from '../../services/storageService';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { formatDateTime } from '../../utils/dateUtils';
+import { AccountFooter } from '../Auth/AccountFooter';
 
 function MacroChip({ label, value, color }: { label: string; value: number; color: string }) {
   return (
@@ -51,6 +52,9 @@ export function HistoryScreen() {
         >
           Generar primer menú
         </button>
+        <div style={{ width: '100%', maxWidth: 340 }}>
+          <AccountFooter />
+        </div>
       </div>
     );
   }
@@ -161,6 +165,8 @@ export function HistoryScreen() {
             </div>
           ))}
         </div>
+
+        <AccountFooter />
       </div>
     </div>
   );

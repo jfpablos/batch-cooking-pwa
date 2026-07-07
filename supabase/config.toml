@@ -1,0 +1,8 @@
+# Supabase CLI config — solo lo necesario para desplegar funciones y migraciones.
+project_id = "batch-cooking-pwa"
+
+[functions.gemini-proxy]
+verify_jwt = true
+
+[functions.youtube-playlist]
+verify_jwt = true

@@ -1,5 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { GenerationConfig } from '@google/generative-ai';
 import {
   GEMINI_SYSTEM_PROMPT,
   GEMINI_GUIDE_SYSTEM_PROMPT,
@@ -25,29 +23,65 @@ import type {
   VideoRecipe,
   YouTubeVideo,
 } from '../types';
+import { isSupabaseConfigured, invokeFunction, functionErrorMessage } from '../lib/supabase';
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
+const MODEL = 'gemini-2.5-flash';
 
-// El SDK aún no tipa thinkingConfig, pero la API lo acepta.
-type ThinkingGenerationConfig = GenerationConfig & {
-  thinkingConfig?: { thinkingBudget: number };
-};
+// Cuerpo de la petición REST de Gemini (generateContent). La API key nunca
+// llega al cliente: la Edge Function gemini-proxy la añade en el servidor.
+interface GeminiPart {
+  text?: string;
+  fileData?: { fileUri: string; mimeType: string };
+}
+
+interface GeminiRequestBody {
+  systemInstruction: { parts: { text: string }[] };
+  contents: { role: 'user'; parts: GeminiPart[] }[];
+  generationConfig: {
+    responseMimeType: string;
+    temperature: number;
+    maxOutputTokens: number;
+    // Sin "thinking": respuestas rápidas y sin truncar el JSON por presupuesto.
+    thinkingConfig: { thinkingBudget: number };
+    mediaResolution?: string;
+  };
+}
+
+interface GeminiRestResponse {
+  candidates?: { content?: { parts?: { text?: string }[] } }[];
+  error?: { message?: string };
+}
+
+async function callGemini(body: GeminiRequestBody, timeoutMs: number): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await invokeFunction('gemini-proxy', {
+      json: { model: MODEL, body },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      throw new Error(await functionErrorMessage(res));
+    }
+    const data = (await res.json()) as GeminiRestResponse;
+    if (data.error?.message) throw new Error(`Gemini: ${data.error.message}`);
+    const text = (data.candidates?.[0]?.content?.parts ?? [])
+      .map(p => p.text ?? '')
+      .join('');
+    if (!text) throw new Error('Gemini devolvió una respuesta vacía');
+    return text;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export class GeminiService {
-  private genAI: GoogleGenerativeAI | null = null;
-
-  private getGenAI(): GoogleGenerativeAI {
-    if (!this.genAI) {
-      if (!API_KEY || API_KEY === 'AIzaSy-tu-key-aqui') {
-        throw new Error('VITE_GEMINI_API_KEY no configurada. Por favor, añade tu API key en .env.local');
-      }
-      this.genAI = new GoogleGenerativeAI(API_KEY);
-    }
-    return this.genAI;
-  }
-
+  /**
+   * La IA está disponible cuando hay backend Supabase (las keys viven en el
+   * servidor). AuthGate garantiza que hay sesión antes de renderizar la app.
+   */
   isConfigured(): boolean {
-    return !!(API_KEY && API_KEY !== 'AIzaSy-tu-key-aqui');
+    return isSupabaseConfigured;
   }
 
   async generateWeeklyMenu(
@@ -57,21 +91,6 @@ export class GeminiService {
     selection: MealSelection = buildFullSelection(),
     opts: MenuPromptOptions = {}
   ): Promise<GeneratedMenuResponse> {
-    const genAI = this.getGenAI();
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.7,
-        maxOutputTokens: 16384,
-        // Disable "thinking": keeps responses fast (~30-40s) and stops the
-        // thinking budget from truncating the menu JSON (MAX_TOKENS). The
-        // prompt is already highly prescriptive, so reasoning adds little.
-        thinkingConfig: { thinkingBudget: 0 },
-      } as ThinkingGenerationConfig,
-      systemInstruction: GEMINI_SYSTEM_PROMPT,
-    }, { timeout: 90000 }); // abort a stuck request → falls back to base recipes
-
     const prompt = generateMenuPrompt(excludeRecipeNames, weekNumber, year, selection, opts);
 
     let lastError: Error | null = null;
@@ -85,8 +104,16 @@ export class GeminiService {
           ? prompt
           : `${prompt}\n\nATENCIÓN: tu respuesta anterior fue RECHAZADA por estos motivos. Corrígelos todos:\n${previousErrors.map(e => `- ${e}`).join('\n')}`;
 
-        const result = await model.generateContent(fullPrompt);
-        const text = result.response.text();
+        const text = await callGemini({
+          systemInstruction: { parts: [{ text: GEMINI_SYSTEM_PROMPT }] },
+          contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.7,
+            maxOutputTokens: 16384,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        }, 90000); // aborta una petición colgada → fallback a recetas base
 
         let parsed: GeneratedMenuResponse;
         try {
@@ -129,20 +156,6 @@ export class GeminiService {
     recipes: BaseRecipe[],
     schedule: RecipeScheduleEntry[]
   ): Promise<GeneratedGuideResponse> {
-    const genAI = this.getGenAI();
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.5,
-        // Los sub-pasos detallados de hasta 25 recetas necesitan más espacio
-        // que la llamada del menú (16384) para no truncar el JSON.
-        maxOutputTokens: 24576,
-        thinkingConfig: { thinkingBudget: 0 },
-      } as ThinkingGenerationConfig,
-      systemInstruction: GEMINI_GUIDE_SYSTEM_PROMPT,
-    }, { timeout: 90000 });
-
     const prompt = generateBatchGuidePrompt(recipes, schedule);
     const recipeNames = schedule.map(s => s.recipeName);
 
@@ -150,8 +163,18 @@ export class GeminiService {
 
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
+        const text = await callGemini({
+          systemInstruction: { parts: [{ text: GEMINI_GUIDE_SYSTEM_PROMPT }] },
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.5,
+            // Los sub-pasos detallados de hasta 25 recetas necesitan más espacio
+            // que la llamada del menú (16384) para no truncar el JSON.
+            maxOutputTokens: 24576,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        }, 90000);
 
         let parsed: GeneratedGuideResponse;
         try {
@@ -189,9 +212,20 @@ export class GeminiService {
    * Puede tardar 30-90s por vídeo; el llamante gestiona el progreso.
    */
   async extractRecipesFromVideo(video: YouTubeVideo): Promise<VideoRecipe[]> {
-    const genAI = this.getGenAI();
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+    const text = await callGemini({
+      systemInstruction: { parts: [{ text: GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT }] },
+      contents: [{
+        role: 'user',
+        parts: [
+          {
+            fileData: {
+              fileUri: `https://www.youtube.com/watch?v=${video.id}`,
+              mimeType: 'video/*',
+            },
+          },
+          { text: generateVideoAnalysisPrompt(video.title) },
+        ],
+      }],
       generationConfig: {
         responseMimeType: 'application/json',
         temperature: 0.2,
@@ -200,21 +234,10 @@ export class GeminiService {
         // Resolución baja: suficiente para identificar recetas y reduce
         // mucho los tokens de vídeo consumidos.
         mediaResolution: 'MEDIA_RESOLUTION_LOW',
-      } as ThinkingGenerationConfig & { mediaResolution?: string },
-      systemInstruction: GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT,
-    }, { timeout: 240000 });
-
-    const result = await model.generateContent([
-      {
-        fileData: {
-          fileUri: `https://www.youtube.com/watch?v=${video.id}`,
-          mimeType: 'video/*',
-        },
       },
-      { text: generateVideoAnalysisPrompt(video.title) },
-    ]);
+    }, 240000);
 
-    const parsed = JSON.parse(result.response.text()) as {
+    const parsed = JSON.parse(text) as {
       recipes?: { name?: string; type?: string; mainIngredients?: string[] }[];
     };
 

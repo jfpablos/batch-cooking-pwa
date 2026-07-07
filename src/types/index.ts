@@ -369,6 +369,7 @@ export interface AppState {
   toastType: 'success' | 'error' | 'info';
 
   // Actions
+  hydrateFromStorage: () => void;
   setCurrentMenu: (menu: WeeklyMenu | null) => void;
   setShoppingList: (list: ShoppingList | null) => void;
   setBatchGuide: (guide: BatchCookingGuide | null) => void;

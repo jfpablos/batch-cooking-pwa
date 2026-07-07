@@ -24,6 +24,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   toastType: 'info',
 
   // Actions
+  // Recarga desde localStorage los datos que se inicializan al crear el store.
+  // Se llama tras el pull inicial de Supabase (los datos del servidor acaban
+  // de sobreescribir localStorage) para que la UI los refleje.
+  hydrateFromStorage: () =>
+    set({
+      currentMenu: storageService.get<WeeklyMenu>(STORAGE_KEYS.CURRENT_MENU),
+      shoppingList: storageService.get<ShoppingList>(STORAGE_KEYS.SHOPPING_LIST),
+      batchGuide: storageService.get<BatchCookingGuide>(STORAGE_KEYS.BATCH_GUIDE),
+      menuHistory: storageService.get<{ history: StoredWeek[] }>(STORAGE_KEYS.MENU_HISTORY)?.history ?? [],
+      pantryItems: storageService.get<PantryItem[]>(STORAGE_KEYS.PANTRY) ?? [],
+    }),
   setCurrentMenu: (menu) => set({ currentMenu: menu }),
   setShoppingList: (list) => set({ shoppingList: list }),
   setBatchGuide: (guide) => set({ batchGuide: guide }),

@@ -1,10 +1,8 @@
 import type { YouTubeVideo, YouTubeCache } from '../types';
 import { STORAGE_KEYS } from '../utils/storageKeys';
 import { normalizeText } from '../utils/textUtils';
+import { isSupabaseConfigured, invokeFunction, functionErrorMessage } from '../lib/supabase';
 
-const YT_API_BASE = 'https://www.googleapis.com/youtube/v3';
-const PLAYLIST_ID = import.meta.env.VITE_YOUTUBE_PLAYLIST_ID as string;
-const YT_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string;
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 días
 // v2: añade "description"; v3: descripción completa (hasta 2000 chars) para
 // poder extraer las recetas de los vídeos recopilatorios
@@ -12,17 +10,12 @@ const CACHE_VERSION = 3;
 
 export class YouTubeService {
 
+  /**
+   * La playlist se carga vía la Edge Function youtube-playlist (la API key y
+   * el playlist ID viven en secrets del servidor).
+   */
   isConfigured(): boolean {
-    return !!(
-      YT_KEY &&
-      YT_KEY !== 'AIzaSy-tu-key-aqui' &&
-      PLAYLIST_ID &&
-      PLAYLIST_ID !== 'PLbo-TdcEj2O95G6vwvMz4ukm8hmkHHe09'
-    ) || !!(
-      YT_KEY &&
-      YT_KEY !== 'AIzaSy-tu-key-aqui' &&
-      PLAYLIST_ID
-    );
+    return isSupabaseConfigured;
   }
 
   async getPlaylistVideos(): Promise<YouTubeVideo[]> {
@@ -33,41 +26,12 @@ export class YouTubeService {
     const cached = this.getCached();
     if (cached) return cached;
 
-    const videos: YouTubeVideo[] = [];
-    let pageToken: string | undefined = undefined;
-
     try {
-      do {
-        const url = new URL(`${YT_API_BASE}/playlistItems`);
-        url.searchParams.set('part', 'snippet');
-        url.searchParams.set('playlistId', PLAYLIST_ID);
-        url.searchParams.set('maxResults', '50');
-        url.searchParams.set('key', YT_KEY);
-        if (pageToken) url.searchParams.set('pageToken', pageToken);
-
-        const res = await fetch(url.toString());
-        const data = await res.json();
-
-        if (data.error) {
-          throw new Error(`YouTube API error: ${data.error.message}`);
-        }
-
-        data.items?.forEach((item: Record<string, unknown>) => {
-          const snippet = item.snippet as Record<string, unknown>;
-          const resourceId = snippet?.resourceId as Record<string, unknown>;
-          if (resourceId?.kind === 'youtube#video') {
-            const thumbnails = snippet.thumbnails as Record<string, Record<string, string>>;
-            videos.push({
-              id: resourceId.videoId as string,
-              title: snippet.title as string,
-              thumbnail: thumbnails?.medium?.url || thumbnails?.default?.url || '',
-              description: ((snippet.description as string) || '').slice(0, 2000),
-            });
-          }
-        });
-
-        pageToken = (data as Record<string, string>).nextPageToken;
-      } while (pageToken);
+      const res = await invokeFunction('youtube-playlist');
+      if (!res.ok) {
+        throw new Error(await functionErrorMessage(res));
+      }
+      const { videos } = (await res.json()) as { videos: YouTubeVideo[] };
 
       this.saveCache(videos);
       return videos;

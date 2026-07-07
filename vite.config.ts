@@ -53,19 +53,10 @@ export default defineConfig(({ command }) => {
           cacheId: 'batchfit-v1',
           runtimeCaching: [
             {
-              urlPattern: /^https:\/\/generativelanguage\.googleapis\.com\/.*/i,
+              // Todo el backend (auth, datos y Edge Functions) siempre por red:
+              // cachear respuestas de Supabase daría datos/sesiones obsoletos.
+              urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
               handler: 'NetworkOnly',
-            },
-            {
-              urlPattern: /^https:\/\/www\.googleapis\.com\/.*/i,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'youtube-api-cache',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 7,
-                },
-              },
             },
             {
               urlPattern: /^https:\/\/i\.ytimg\.com\/.*/i,

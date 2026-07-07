@@ -86,15 +86,15 @@ export function VideosScreen() {
           ▶️
         </div>
         <div>
-          <p className="display" style={{ fontSize: 22 }}>YouTube no configurado</p>
+          <p className="display" style={{ fontSize: 22 }}>Backend no configurado</p>
           <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 6, maxWidth: 280 }}>
-            Añade tu API key y playlist ID en <code style={{ background: 'var(--cream-2)', padding: '2px 6px', borderRadius: 5, fontSize: 12 }}>.env.local</code> para ver los vídeos
+            Los vídeos se cargan a través de Supabase. Añade las variables en <code style={{ background: 'var(--cream-2)', padding: '2px 6px', borderRadius: 5, fontSize: 12 }}>.env.local</code> (ver SETUP-SUPABASE.md)
           </p>
         </div>
         <div style={{ background: 'var(--cream-2)', borderRadius: 16, padding: '14px 16px', textAlign: 'left', width: '100%', maxWidth: 320, fontFamily: 'var(--ff-mono)', fontSize: 12, lineHeight: 1.8 }}>
           <div style={{ color: 'var(--muted)' }}>// .env.local</div>
-          <div>VITE_YOUTUBE_API_KEY=<span style={{ color: 'var(--orange)' }}>tu-key</span></div>
-          <div>VITE_YOUTUBE_PLAYLIST_ID=<span style={{ color: 'var(--orange)' }}>PLxxx…</span></div>
+          <div>VITE_SUPABASE_URL=<span style={{ color: 'var(--orange)' }}>https://xxx.supabase.co</span></div>
+          <div>VITE_SUPABASE_ANON_KEY=<span style={{ color: 'var(--orange)' }}>eyJ…</span></div>
         </div>
       </div>
     );

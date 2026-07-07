@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from '../utils/storageKeys';
+import { syncService } from './syncService';
 
 type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];
 
@@ -16,6 +17,7 @@ export const storageService = {
   set<T>(key: StorageKey, value: T): boolean {
     try {
       localStorage.setItem(key, JSON.stringify(value));
+      syncService.onLocalWrite(key);
       return true;
     } catch (e) {
       if (e instanceof DOMException && e.name === 'QuotaExceededError') {
@@ -23,6 +25,7 @@ export const storageService = {
         this.clearOldData();
         try {
           localStorage.setItem(key, JSON.stringify(value));
+          syncService.onLocalWrite(key);
           return true;
         } catch {
           return false;
@@ -35,6 +38,7 @@ export const storageService = {
   remove(key: StorageKey): void {
     try {
       localStorage.removeItem(key);
+      syncService.onLocalWrite(key);
     } catch {
       // silent
     }
@@ -42,7 +46,10 @@ export const storageService = {
 
   clear(): void {
     try {
-      Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+      Object.values(STORAGE_KEYS).forEach(k => {
+        localStorage.removeItem(k);
+        syncService.onLocalWrite(k);
+      });
     } catch {
       // silent
     }
