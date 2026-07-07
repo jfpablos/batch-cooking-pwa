@@ -22,6 +22,10 @@ const LOCAL_ONLY_KEYS = new Set<string>([STORAGE_KEYS.YT_VIDEOS_CACHE]);
 const PENDING_KEY = 'batchfit:sync_pending';
 const PUSH_DEBOUNCE_MS = 800;
 
+// La UI escucha este evento para rehidratar el store cuando la reconciliación
+// escribe en localStorage un valor más reciente del servidor.
+export const REMOTE_UPDATE_EVENT = 'batchfit:remote-update';
+
 const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let userId: string | null = null;
 
@@ -29,19 +33,28 @@ function syncedKeys(): StorageKey[] {
   return Object.values(STORAGE_KEYS).filter(k => !LOCAL_ONLY_KEYS.has(k));
 }
 
-function getPending(): Set<string> {
+// clave → epoch ms de la escritura local que quedó sin subir
+type PendingMap = Record<string, number>;
+
+function getPending(): PendingMap {
   try {
     const raw = localStorage.getItem(PENDING_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) {
+      // Formato antiguo (string[]): migrar conservando el cambio local
+      return Object.fromEntries(parsed.map(k => [k as string, Date.now()]));
+    }
+    return parsed as PendingMap;
   } catch {
-    return new Set();
+    return {};
   }
 }
 
-function setPending(keys: Set<string>): void {
+function setPending(pending: PendingMap): void {
   try {
-    if (keys.size === 0) localStorage.removeItem(PENDING_KEY);
-    else localStorage.setItem(PENDING_KEY, JSON.stringify([...keys]));
+    if (Object.keys(pending).length === 0) localStorage.removeItem(PENDING_KEY);
+    else localStorage.setItem(PENDING_KEY, JSON.stringify(pending));
   } catch {
     // sin espacio: el pull inicial del próximo arranque reconciliará
   }
@@ -49,14 +62,35 @@ function setPending(keys: Set<string>): void {
 
 function markPending(key: string): void {
   const pending = getPending();
-  pending.add(key);
+  pending[key] = Date.now();
   setPending(pending);
+}
+
+function clearPending(key: string): void {
+  const pending = getPending();
+  if (key in pending) {
+    delete pending[key];
+    setPending(pending);
+  }
 }
 
 /** Sube (o borra) una clave en el servidor. Lee el valor actual de localStorage. */
 async function pushKey(key: string): Promise<void> {
   if (!supabase || !userId) return;
   const raw = localStorage.getItem(key);
+
+  let value: unknown = null;
+  if (raw !== null) {
+    try {
+      value = JSON.parse(raw);
+    } catch (e) {
+      // Valor local corrupto: reintentarlo para siempre no lo arreglará
+      console.warn(`[Sync] ${key} corrupto en localStorage, se descarta del sync:`, e);
+      clearPending(key);
+      return;
+    }
+  }
+
   try {
     if (raw === null) {
       const { error } = await supabase.from('app_state').delete().eq('key', key);
@@ -64,14 +98,60 @@ async function pushKey(key: string): Promise<void> {
     } else {
       const { error } = await supabase
         .from('app_state')
-        .upsert({ user_id: userId, key, value: JSON.parse(raw) }, { onConflict: 'user_id,key' });
+        .upsert({ user_id: userId, key, value }, { onConflict: 'user_id,key' });
       if (error) throw error;
     }
-    const pending = getPending();
-    if (pending.delete(key)) setPending(pending);
+    clearPending(key);
   } catch (e) {
     console.warn(`[Sync] No se pudo subir ${key}, queda pendiente:`, e);
     markPending(key);
+  }
+}
+
+/**
+ * Sube los cambios pendientes reconciliando con el servidor: si otra sesión
+ * escribió la clave DESPUÉS del cambio local pendiente (updated_at más
+ * reciente), gana el servidor — se trae su valor en vez de machacarlo.
+ */
+async function pushPendingReconciled(): Promise<void> {
+  if (!supabase || !userId) return;
+  const pending = getPending();
+  const keys = Object.keys(pending);
+  if (keys.length === 0) return;
+
+  let serverRows = new Map<string, { value: unknown; updatedAt: number }>();
+  try {
+    const { data, error } = await supabase
+      .from('app_state')
+      .select('key, value, updated_at')
+      .in('key', keys);
+    if (!error && data) {
+      serverRows = new Map(
+        data.map(row => [row.key as string, { value: row.value, updatedAt: Date.parse(row.updated_at as string) }])
+      );
+    }
+  } catch {
+    // sin info del servidor: se empuja igualmente (comportamiento anterior)
+  }
+
+  let pulledAny = false;
+  for (const key of keys) {
+    const server = serverRows.get(key);
+    if (server && Number.isFinite(server.updatedAt) && server.updatedAt > pending[key]) {
+      try {
+        localStorage.setItem(key, JSON.stringify(server.value));
+        pulledAny = true;
+      } catch (e) {
+        console.error(`[Sync] No se pudo escribir ${key} en localStorage:`, e);
+      }
+      clearPending(key);
+      continue;
+    }
+    await pushKey(key);
+  }
+
+  if (pulledAny && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(REMOTE_UPDATE_EVENT));
   }
 }
 
@@ -90,9 +170,7 @@ export const syncService = {
     if (!supabase) return;
     userId = currentUserId;
 
-    for (const key of getPending()) {
-      await pushKey(key);
-    }
+    await pushPendingReconciled();
 
     const { data, error } = await supabase.from('app_state').select('key, value');
     if (error) {
@@ -146,9 +224,7 @@ export const syncService = {
 
   async flushPending(): Promise<void> {
     if (!userId) return;
-    for (const key of getPending()) {
-      await pushKey(key);
-    }
+    await pushPendingReconciled();
   },
 
   signOut(): void {

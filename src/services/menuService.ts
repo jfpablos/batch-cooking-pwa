@@ -14,9 +14,8 @@ import type {
 } from '../types';
 import { recipeService } from './recipeService';
 import { buildFullSelection } from '../utils/prompts';
-
-const DAYS: DayName[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
-const DAYS_GEMINI = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'] as const;
+import { normalizeText } from '../utils/textUtils';
+import { DAYS, MEAL_KEYS, MEAL_CATEGORY } from '../utils/constants';
 
 const ZERO_NUTRITION: NutritionInfo = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
 
@@ -25,14 +24,6 @@ const SKIPPED_MEAL: RecipeMeal = {
   recipeName: 'Comer fuera',
   nutrition: ZERO_NUTRITION,
   isSkipped: true,
-};
-
-const MEAL_CATEGORY: Record<MealKey, RecipeCategory> = {
-  desayuno: 'desayuno',
-  preEntreno: 'pre-entreno',
-  principal: 'principal',
-  postEntreno: 'post-entreno',
-  cena: 'cena',
 };
 
 function sumNutrition(items: NutritionInfo[]): NutritionInfo {
@@ -49,7 +40,9 @@ function sumNutrition(items: NutritionInfo[]): NutritionInfo {
 }
 
 function avgNutrition(days: DayMenu[]): WeeklyNutritionSummary {
-  const activeDays = days.filter(d => d.totalNutrition.calories > 0);
+  // Un día cuenta si tiene alguna comida planificada, aunque su nutrición sea
+  // 0 por un desajuste de nombres — si no, la media diaria sale inflada.
+  const activeDays = days.filter(d => Object.values(d.meals).some(m => !m.isSkipped));
   const n = activeDays.length || 1;
   const total = sumNutrition(activeDays.map(d => d.totalNutrition));
   return {
@@ -90,19 +83,23 @@ export const menuService = {
     selection: MealSelection = buildFullSelection()
   ): WeeklyMenu {
     const recipes: BaseRecipe[] = aiResponse.recipes.map(geminiRecipeToBase);
-    const recipeMap = new Map(recipes.map(r => [r.name, r]));
+    const recipeMap = new Map(recipes.map(r => [normalizeText(r.name), r]));
 
-    const days: DayMenu[] = DAYS_GEMINI.map(dayKey => {
+    const days: DayMenu[] = DAYS.map(dayKey => {
       const dayGemini = aiResponse.weekMenu?.[dayKey];
 
       const getMeal = (mealKey: MealKey): RecipeMeal => {
         if (!selection[dayKey]?.[mealKey]) return SKIPPED_MEAL;
         const mealName = dayGemini?.[mealKey];
         if (!mealName) return SKIPPED_MEAL;
-        const recipe = recipeMap.get(mealName);
+        const recipe = recipeMap.get(normalizeText(mealName));
+        if (!recipe) {
+          console.warn(`[Menu] "${mealName}" (${dayKey}/${mealKey}) no está en el array de recetas — quedará sin macros ni ingredientes`);
+        }
         return {
           recipeId: recipe?.id ?? mealName,
-          recipeName: mealName,
+          // Usa el nombre canónico de la ficha para que compra/guía/vídeos casen
+          recipeName: recipe?.name ?? mealName,
           nutrition: recipe?.nutrition ?? { ...ZERO_NUTRITION },
         };
       };
@@ -223,7 +220,8 @@ export const menuService = {
    */
   isFreshRecipe(recipe: BaseRecipe): boolean {
     if (recipe.prepStyle) return recipe.prepStyle === 'al-momento';
-    return recipe.prepTime + recipe.cookTime <= 12;
+    // Mismo umbral que la definición de "al-momento" del prompt (≤15 min)
+    return recipe.prepTime + recipe.cookTime <= 15;
   },
 
   /**
@@ -232,9 +230,8 @@ export const menuService = {
    */
   buildRecipeSchedule(menu: WeeklyMenu): RecipeScheduleEntry[] {
     const map = new Map<string, RecipeScheduleEntry>();
-    const mealKeys: MealKey[] = ['desayuno', 'preEntreno', 'principal', 'postEntreno', 'cena'];
     for (const day of menu.days) {
-      for (const key of mealKeys) {
+      for (const key of MEAL_KEYS) {
         const meal = day.meals[key];
         if (meal.isSkipped) continue;
         let entry = map.get(meal.recipeName);
@@ -269,5 +266,47 @@ export const menuService = {
     return menu.recipes.find(
       r => r.name.toLowerCase() === recipeName.toLowerCase()
     );
+  },
+
+  /** Convierte una receta de Gemini al formato interno (para el swap). */
+  recipeFromGemini(gr: GeneratedMenuResponse['recipes'][0]): BaseRecipe {
+    return geminiRecipeToBase(gr);
+  },
+
+  /**
+   * Sustituye una comida concreta del menú por otra receta, recalculando la
+   * nutrición del día y el resumen semanal. La receta antigua se retira del
+   * array si ya no se consume ningún día (solo en menús IA; el banco base se
+   * conserva íntegro).
+   */
+  replaceMeal(menu: WeeklyMenu, dayName: DayName, mealKey: MealKey, recipe: BaseRecipe): WeeklyMenu {
+    const oldName = menu.days.find(d => d.day === dayName)?.meals[mealKey]?.recipeName;
+
+    const days: DayMenu[] = menu.days.map(d => {
+      if (d.day !== dayName) return d;
+      const meals = {
+        ...d.meals,
+        [mealKey]: { recipeId: recipe.id, recipeName: recipe.name, nutrition: recipe.nutrition },
+      };
+      const totalNutrition = sumNutrition(MEAL_KEYS.map(k => meals[k].nutrition));
+      return { ...d, meals, totalNutrition };
+    });
+
+    let recipes = menu.recipes.some(r => r.name === recipe.name)
+      ? menu.recipes
+      : [...menu.recipes, recipe];
+    if (oldName && menu.source === 'gemini') {
+      const stillUsed = days.some(d =>
+        MEAL_KEYS.some(k => !d.meals[k].isSkipped && d.meals[k].recipeName === oldName)
+      );
+      if (!stillUsed) recipes = recipes.filter(r => r.name !== oldName);
+    }
+
+    return {
+      ...menu,
+      days,
+      recipes,
+      nutritionSummary: { ...avgNutrition(days), notes: menu.nutritionSummary.notes },
+    };
   },
 };

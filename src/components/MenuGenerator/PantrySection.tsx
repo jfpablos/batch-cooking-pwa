@@ -3,7 +3,9 @@ import { ChevronDown, Package, Plus, X } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
 export function PantrySection() {
-  const { pantryItems, addPantryItem, removePantryItem } = useAppStore();
+  const pantryItems = useAppStore(s => s.pantryItems);
+  const addPantryItem = useAppStore(s => s.addPantryItem);
+  const removePantryItem = useAppStore(s => s.removePantryItem);
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState('');
 

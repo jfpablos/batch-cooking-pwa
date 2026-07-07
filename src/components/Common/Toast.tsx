@@ -4,7 +4,9 @@ import { clsx } from 'clsx';
 import { useAppStore } from '../../store/useAppStore';
 
 export function Toast() {
-  const { toastMessage, toastType, clearToast } = useAppStore();
+  const toastMessage = useAppStore(s => s.toastMessage);
+  const toastType = useAppStore(s => s.toastType);
+  const clearToast = useAppStore(s => s.clearToast);
 
   useEffect(() => {
     if (!toastMessage) return;

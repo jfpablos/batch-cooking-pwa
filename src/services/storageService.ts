@@ -3,6 +3,14 @@ import { syncService } from './syncService';
 
 type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];
 
+// Evento para que la UI avise cuando una escritura falla (cuota llena):
+// storageService no puede importar el store (dependencia circular).
+export const STORAGE_ERROR_EVENT = 'batchfit:storage-error';
+
+function notifyStorageError(key: string): void {
+  window.dispatchEvent(new CustomEvent(STORAGE_ERROR_EVENT, { detail: { key } }));
+}
+
 export const storageService = {
   get<T>(key: StorageKey): T | null {
     try {
@@ -28,9 +36,11 @@ export const storageService = {
           syncService.onLocalWrite(key);
           return true;
         } catch {
+          notifyStorageError(key);
           return false;
         }
       }
+      notifyStorageError(key);
       return false;
     }
   },
@@ -58,20 +68,5 @@ export const storageService = {
   clearOldData(): void {
     // Remove least critical data first
     this.remove(STORAGE_KEYS.YT_VIDEOS_CACHE);
-  },
-
-  getStorageUsage(): { used: number; total: number; percentage: number } {
-    let used = 0;
-    for (const key in localStorage) {
-      if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
-        used += localStorage.getItem(key)?.length ?? 0;
-      }
-    }
-    const total = 5 * 1024 * 1024; // ~5MB
-    return {
-      used,
-      total,
-      percentage: Math.round((used / total) * 100),
-    };
   },
 };

@@ -1,13 +1,16 @@
 import {
-  GEMINI_SYSTEM_PROMPT,
+  buildMenuSystemPrompt,
   GEMINI_GUIDE_SYSTEM_PROMPT,
+  GEMINI_SINGLE_MEAL_SYSTEM_PROMPT,
   GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT,
   generateMenuPrompt,
   generateBatchGuidePrompt,
+  generateSingleMealPrompt,
   generateVideoAnalysisPrompt,
   buildFullSelection,
 } from '../utils/prompts';
-import type { MenuPromptOptions } from '../utils/prompts';
+import type { MenuPromptOptions, Season } from '../utils/prompts';
+import type { MealTarget } from '../utils/constants';
 import {
   validateMenuResponse,
   sanitizeMenuResponse,
@@ -16,10 +19,13 @@ import {
 } from '../utils/validators';
 import type {
   BaseRecipe,
+  GeminiRecipe,
   GeneratedGuideResponse,
   GeneratedMenuResponse,
   MealSelection,
+  RecipeCategory,
   RecipeScheduleEntry,
+  UserProfile,
   VideoRecipe,
   YouTubeVideo,
 } from '../types';
@@ -89,9 +95,11 @@ export class GeminiService {
     weekNumber: number,
     year: number,
     selection: MealSelection = buildFullSelection(),
-    opts: MenuPromptOptions = {}
+    opts: MenuPromptOptions = {},
+    profile?: UserProfile
   ): Promise<GeneratedMenuResponse> {
     const prompt = generateMenuPrompt(excludeRecipeNames, weekNumber, year, selection, opts);
+    const systemPrompt = buildMenuSystemPrompt(profile);
 
     let lastError: Error | null = null;
     let previousErrors: string[] = [];
@@ -105,7 +113,7 @@ export class GeminiService {
           : `${prompt}\n\nATENCIÓN: tu respuesta anterior fue RECHAZADA por estos motivos. Corrígelos todos:\n${previousErrors.map(e => `- ${e}`).join('\n')}`;
 
         const text = await callGemini({
-          systemInstruction: { parts: [{ text: GEMINI_SYSTEM_PROMPT }] },
+          systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
           generationConfig: {
             responseMimeType: 'application/json',
@@ -203,6 +211,53 @@ export class GeminiService {
     }
 
     throw lastError ?? new Error('Error desconocido al generar la guía batch');
+  }
+
+  /**
+   * Genera UNA receta nueva para sustituir una comida concreta del menú
+   * (swap). 2 intentos; en caso de fallo el llamante recurre al banco base.
+   */
+  async generateSingleMeal(params: {
+    category: RecipeCategory;
+    targets: MealTarget;
+    excludeNames: string[];
+    replacedName: string;
+    pantryItems?: string[];
+    season?: Season;
+  }): Promise<GeminiRecipe> {
+    const prompt = generateSingleMealPrompt(params);
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const text = await callGemini({
+          systemInstruction: { parts: [{ text: GEMINI_SINGLE_MEAL_SYSTEM_PROMPT }] },
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.8,
+            maxOutputTokens: 4096,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        }, 60000);
+
+        const parsed = JSON.parse(text) as GeminiRecipe;
+        if (!parsed?.name || !Array.isArray(parsed.ingredients) || !parsed.nutrition) {
+          throw new Error('Receta de sustitución incompleta');
+        }
+        const badAmount = parsed.ingredients.some(
+          i => typeof i.amount !== 'number' || !Number.isFinite(i.amount) || !i.name
+        );
+        if (badAmount) throw new Error('Receta de sustitución con ingredientes inválidos');
+        return parsed;
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`[Gemini] Swap — intento ${attempt} fallido:`, error);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+
+    throw lastError ?? new Error('No se pudo generar la receta de sustitución');
   }
 
   /**

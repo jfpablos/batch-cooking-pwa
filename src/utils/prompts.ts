@@ -1,25 +1,68 @@
-import type { BaseRecipe, DayName, MealKey, MealSelection, RecipeScheduleEntry, VideoRecipe } from '../types';
+import type { BaseRecipe, MealKey, MealSelection, RecipeCategory, RecipeScheduleEntry, UserProfile, VideoRecipe } from '../types';
+import { DAYS, MEAL_KEYS, DEFAULT_PROFILE, scaledMealTargets } from './constants';
+import type { MealTarget } from './constants';
 
-export const GEMINI_SYSTEM_PROMPT = `Eres un nutricionista deportivo especializado en crossfit y fuerza funcional.
+// =============================================
+// ESTACIONALIDAD
+// =============================================
+
+export type Season = 'invierno' | 'primavera' | 'verano' | 'otoño';
+
+export function getCurrentSeason(date: Date = new Date()): Season {
+  const m = date.getMonth(); // 0-11, hemisferio norte
+  if (m === 11 || m <= 1) return 'invierno';
+  if (m <= 4) return 'primavera';
+  if (m <= 7) return 'verano';
+  return 'otoño';
+}
+
+const SEASON_GUIDANCE: Record<Season, string> = {
+  invierno:
+    'Estamos en INVIERNO: prioriza platos calientes y reconfortantes (guisos, estofados, cremas de verduras, legumbres, horneados). Verduras de temporada en España: col, coliflor, brócoli, calabaza, puerro, espinacas, acelgas; fruta: naranja, mandarina, kiwi, plátano, manzana, pera.',
+  primavera:
+    'Estamos en PRIMAVERA: combina platos templados con opciones más ligeras (salteados, arroces, primeras ensaladas). Verduras de temporada en España: espárragos, guisantes, habas, alcachofa, espinacas; fruta: fresas, níspero, plátano, manzana.',
+  verano:
+    'Estamos en VERANO: prioriza platos frescos y ligeros que apetezcan con calor (ensaladas completas, bowls fríos, gazpacho/salmorejo, pescados a la plancha, cremas frías). Evita guisos pesados y horneados largos. Verduras de temporada en España: tomate, pimiento, pepino, calabacín, berenjena, judías verdes; fruta: sandía, melón, melocotón, nectarina, ciruela.',
+  otoño:
+    'Estamos en OTOÑO: vuelve progresivamente a platos templados y de cuchara (cremas, salteados, legumbres suaves, horneados). Verduras de temporada en España: calabaza, boniato, setas, coles, puerro; fruta: uva, granada, caqui, manzana, pera, plátano.',
+};
+
+export const buildSeasonSection = (season: Season = getCurrentSeason()): string => `
+ESTACIONALIDAD (OBLIGATORIO):
+${SEASON_GUIDANCE[season]}
+Adapta el estilo de las recetas y usa ingredientes de temporada siempre que encajen con los macros.
+`;
+
+// =============================================
+// SYSTEM PROMPT DEL MENÚ (parametrizado por perfil)
+// =============================================
+
+const fmtMeal = (label: string, t: MealTarget, note = '') =>
+  `${label} ~${t.kcal} kcal | ${t.protein}g prot | ${t.carbs}g carbos | ${t.fat}g grasa${note}`;
+
+export function buildMenuSystemPrompt(profile: UserProfile = DEFAULT_PROFILE): string {
+  const t = scaledMealTargets(profile);
+  const perKg = (g: number) => (g / profile.weightKg).toFixed(1).replace('.', ',');
+  return `Eres un nutricionista deportivo especializado en crossfit y fuerza funcional.
 Generas menús semanales de batch cooking para el siguiente perfil:
 
 PERFIL DEL ATLETA:
-- Hombre, 39 años, 82,5 kg
+- ${profile.weightKg.toLocaleString('es-ES')} kg
 - Crossfit intenso de lunes a viernes (5 sesiones/semana)
 - Objetivo: rendimiento deportivo + recuperación muscular
 
 NECESIDADES NUTRICIONALES DIARIAS (días de entreno L-V):
-- Calorías totales: ~3.290 kcal/día
-- Proteína: 165 g/día (2,0 g/kg) — 20% de las calorías
-- Carbohidratos: 454 g/día (5,5 g/kg) — 55% de las calorías
-- Grasas: 91 g/día (1,1 g/kg) — 25% de las calorías
+- Calorías totales: ~${profile.calories.toLocaleString('es-ES')} kcal/día
+- Proteína: ${profile.protein} g/día (${perKg(profile.protein)} g/kg)
+- Carbohidratos: ${profile.carbs} g/día (${perKg(profile.carbs)} g/kg)
+- Grasas: ${profile.fat} g/día (${perKg(profile.fat)} g/kg)
 
 DISTRIBUCIÓN POR COMIDA:
-1. Desayuno (07:00):         ~680 kcal | 25g prot | 100g carbos | 20g grasa
-2. Pre-entreno (11:30):      ~518 kcal | 16g prot | 100g carbos |  6g grasa  ← mínima grasa
-3. Comida principal (14:00): ~935 kcal | 50g prot | 123g carbos | 27g grasa  ← mayor ingesta
-4. Post-entreno (18:00):     ~573 kcal | 41g prot |  82g carbos |  9g grasa  ← ventana anabólica
-5. Cena (21:00):             ~584 kcal | 33g prot |  50g carbos | 28g grasa  ← ligera, menos carbos
+1. ${fmtMeal('Desayuno (07:00):', t.desayuno)}
+2. ${fmtMeal('Pre-entreno (11:30):', t.preEntreno, '  ← mínima grasa')}
+3. ${fmtMeal('Comida principal (14:00):', t.principal, '  ← mayor ingesta')}
+4. ${fmtMeal('Post-entreno (18:00):', t.postEntreno, '  ← ventana anabólica')}
+5. ${fmtMeal('Cena (21:00):', t.cena, '  ← ligera, menos carbos')}
 
 REGLAS DE BATCH COOKING (se prepara el domingo para L-V):
 - Todas las recetas deben conservarse ≥4 días en frigorífico
@@ -49,9 +92,7 @@ REGLAS CULINARIAS:
 
 FORMATO DE RESPUESTA: JSON válido con estructura exacta definida en el prompt.
 NO añadir texto fuera del JSON. NO usar markdown. Responde SOLO con el JSON.`;
-
-const DAYS: DayName[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
-const MEAL_KEYS: MealKey[] = ['desayuno', 'preEntreno', 'principal', 'postEntreno', 'cena'];
+}
 
 export function buildFullSelection(): MealSelection {
   return DAYS.reduce((acc, day) => {
@@ -88,7 +129,19 @@ export interface MenuPromptOptions {
   pantryItems?: string[];
   inspirationVideos?: { title: string; description?: string }[];
   videoRecipes?: VideoRecipe[];
+  favoriteRecipes?: string[];
+  season?: Season;
 }
+
+const buildFavoritesSection = (favorites: string[]): string => {
+  if (favorites.length === 0) return '';
+  return `
+RECETAS FAVORITAS DEL USUARIO (le gustan especialmente):
+${favorites.map(f => `- ${f}`).join('\n')}
+Puedes incluir 1-2 si no están en la lista de recetas a evitar, o crear variaciones
+en su misma línea de sabor. No es obligatorio usarlas.
+`;
+};
 
 const buildPantrySection = (pantryItems: string[]): string => {
   if (pantryItems.length === 0) return '';
@@ -153,11 +206,11 @@ Genera ÚNICAMENTE las recetas para las claves día/comida que aparecen en el es
 NO inventes recetas para días o comidas no listados — el usuario comerá fuera o no necesita esa toma.
 El array "recipes" debe contener SOLO las recetas referenciadas en "weekMenu" (ni más, ni menos).
 
-RECETAS A EVITAR ESTA SEMANA (usadas en las últimas 4 semanas):
+RECETAS A EVITAR ESTA SEMANA (usadas en las últimas 4 semanas o vetadas por el usuario):
 ${excludeRecipeNames.length > 0
   ? excludeRecipeNames.map(r => `- ${r}`).join('\n')
   : '- (ninguna restricción esta semana — primera generación)'}
-${buildPantrySection(opts.pantryItems ?? [])}${
+${buildSeasonSection(opts.season)}${buildFavoritesSection(opts.favoriteRecipes ?? [])}${buildPantrySection(opts.pantryItems ?? [])}${
   // El catálogo de recetas por vídeo es más preciso; los títulos solo son el fallback
   opts.videoRecipes?.length
     ? buildVideoRecipesSection(opts.videoRecipes)
@@ -237,6 +290,57 @@ IMPORTANTE:
 - Todas las cantidades en gramos exactos
 `;
 };
+
+// =============================================
+// SWAP DE UNA SOLA COMIDA
+// =============================================
+
+export const GEMINI_SINGLE_MEAL_SYSTEM_PROMPT = `Eres un nutricionista deportivo especializado en crossfit.
+Generas UNA sola receta de batch cooking que sustituye a otra en un menú semanal ya creado.
+FORMATO DE RESPUESTA: JSON válido con la estructura exacta del prompt. Sin markdown ni texto extra.`;
+
+export function generateSingleMealPrompt(params: {
+  category: RecipeCategory;
+  targets: MealTarget;
+  excludeNames: string[];
+  replacedName: string;
+  pantryItems?: string[];
+  season?: Season;
+}): string {
+  const { category, targets, excludeNames, replacedName, pantryItems = [], season } = params;
+  return `
+Genera UNA receta nueva de tipo "${category}" para sustituir a "${replacedName}" en el menú de esta semana.
+
+TARGETS NUTRICIONALES DE ESTA COMIDA (aproxímate lo máximo posible):
+~${targets.kcal} kcal | ${targets.protein} g proteína | ${targets.carbs} g carbohidratos | ${targets.fat} g grasa
+${buildSeasonSection(season)}
+RECETAS A EVITAR (ya usadas, vetadas o presentes en el menú actual):
+${excludeNames.length > 0 ? excludeNames.map(r => `- ${r}`).join('\n') : '- (ninguna)'}
+${pantryItems.length > 0 ? `\nINGREDIENTES YA EN CASA que puedes aprovechar: ${pantryItems.join(', ')}\n` : ''}
+REGLAS:
+- Apta para batch cooking (se cocina el domingo y se conserva ≥4 días en nevera), salvo que sea
+  una toma funcional rápida (batido, gachas...) — en ese caso usa "prepStyle": "al-momento"
+- Solo ingredientes de supermercados españoles, cantidades en gramos exactos
+- Tiempo total ≤45 min
+
+ESTRUCTURA REQUERIDA DEL JSON (responde EXACTAMENTE con este formato — un solo objeto, sin array):
+{
+  "name": "Nombre de la receta",
+  "category": "${category}",
+  "prepTime": 10,
+  "cookTime": 20,
+  "servings": 1,
+  "ingredients": [ { "name": "pechuga de pollo", "amount": 250, "unit": "g" } ],
+  "steps": ["Paso 1: ...", "Paso 2: ..."],
+  "nutrition": { "calories": ${targets.kcal}, "protein": ${targets.protein}, "carbs": ${targets.carbs}, "fat": ${targets.fat}, "fiber": 6 },
+  "storage": { "days": 4, "instructions": "Tupper hermético en nevera", "freezable": true },
+  "batchNotes": "Notas para escalar la preparación",
+  "tags": ["..."],
+  "prepStyle": "batch",
+  "sourceVideoId": null
+}
+`;
+}
 
 // =============================================
 // SEGUNDA LLAMADA: GUÍA BATCH DETALLADA + CONSERVACIÓN

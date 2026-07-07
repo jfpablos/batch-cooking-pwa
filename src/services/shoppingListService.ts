@@ -107,20 +107,47 @@ const CATEGORY_MAP: Record<string, ShoppingCategoryName> = {
   'mantequilla de cacahuete': 'Grasas y Aceites',
   'mantequilla de cacahuete natural': 'Grasas y Aceites',
   'aguacate': 'Grasas y Aceites',
+  'leche de coco': 'Grasas y Aceites',
+  'frutos secos': 'Grasas y Aceites',
+  'nueces': 'Grasas y Aceites',
+  'almendras': 'Grasas y Aceites',
+
+  // Bebidas vegetales (no lácteos)
+  'leche de almendras': 'Otros',
+  'leche de avena': 'Otros',
+  'leche de soja': 'Otros',
 };
 
+// Claves normalizadas y ordenadas de más específica a más genérica, para que
+// "leche de coco" gane a "leche" y el match sea por palabra completa
+// ("repollo" ya no cae en "pollo").
+const CATEGORY_ENTRIES = Object.entries(CATEGORY_MAP)
+  .map(([key, cat]) => ({ key: ` ${normalizeText(key)} `, cat }))
+  .sort((a, b) => b.key.length - a.key.length);
+
 function categorizeIngredient(name: string): ShoppingCategoryName {
-  const normalName = name.toLowerCase().trim();
-
-  // Exact match
-  if (CATEGORY_MAP[normalName]) return CATEGORY_MAP[normalName];
-
-  // Partial match
-  for (const [key, cat] of Object.entries(CATEGORY_MAP)) {
-    if (normalName.includes(key) || key.includes(normalName)) return cat;
+  const normalName = ` ${normalizeText(name)} `;
+  for (const { key, cat } of CATEGORY_ENTRIES) {
+    if (normalName.includes(key)) return cat;
   }
-
   return 'Otros';
+}
+
+// Sinónimos de unidad → forma canónica, para que "gr"/"gramos" se agregue con "g"
+const UNIT_ALIASES: Record<string, string> = {
+  g: 'g', gr: 'g', grs: 'g', gramo: 'g', gramos: 'g',
+  kg: 'kg', kilo: 'kg', kilos: 'kg',
+  ml: 'ml', mililitro: 'ml', mililitros: 'ml',
+  l: 'l', litro: 'l', litros: 'l',
+  ud: 'unidad', uds: 'unidad', u: 'unidad', unidad: 'unidad', unidades: 'unidad',
+  pieza: 'unidad', piezas: 'unidad',
+  cda: 'cda', cdas: 'cda', cucharada: 'cda', cucharadas: 'cda',
+  cdta: 'cdta', cdtas: 'cdta', cucharadita: 'cdta', cucharaditas: 'cdta',
+};
+
+function normalizeUnit(unit: string): string {
+  const u = (unit ?? '').toLowerCase().trim().replace(/\.+$/, '');
+  return UNIT_ALIASES[u] ?? u;
 }
 
 const CATEGORY_ORDER: ShoppingCategoryName[] = [
@@ -136,7 +163,9 @@ const CATEGORY_ORDER: ShoppingCategoryName[] = [
 export const shoppingListService = {
   generateFromMenu(menu: WeeklyMenu): ShoppingList {
     const aggregated = new Map<string, ShoppingItem>();
-    const recipeMap = new Map<string, BaseRecipe>(menu.recipes.map(r => [r.name, r]));
+    // Clave normalizada: un desajuste de acentos/mayúsculas entre weekMenu y
+    // recipes no debe dejar una comida sin ingredientes en la lista.
+    const recipeMap = new Map<string, BaseRecipe>(menu.recipes.map(r => [normalizeText(r.name), r]));
 
     for (const day of menu.days) {
       const mealEntries = [
@@ -149,8 +178,11 @@ export const shoppingListService = {
 
       for (const { mealData } of mealEntries) {
         if (mealData.isSkipped) continue;
-        const recipe = recipeMap.get(mealData.recipeName);
-        if (!recipe) continue;
+        const recipe = recipeMap.get(normalizeText(mealData.recipeName));
+        if (!recipe) {
+          console.warn(`[ShoppingList] Receta "${mealData.recipeName}" sin ficha — sus ingredientes no entran en la lista`);
+          continue;
+        }
 
         for (const ingredient of recipe.ingredients) {
           this.aggregateIngredient(aggregated, ingredient, mealData.recipeName);
@@ -195,19 +227,29 @@ export const shoppingListService = {
     ingredient: Ingredient,
     recipeName: string
   ): void {
-    const key = `${ingredient.name.toLowerCase()}_${ingredient.unit}`;
+    // Gemini puede devolver amounts como string o nulos: coercer a número
+    // finito para no propagar NaN a la lista.
+    const parsed = Number(ingredient.amount);
+    let amount = Number.isFinite(parsed) ? parsed : 0;
+    let unit = normalizeUnit(ingredient.unit);
+
+    // kg y l se agregan en g/ml para fusionarse con el resto de cantidades
+    if (unit === 'kg') { amount *= 1000; unit = 'g'; }
+    if (unit === 'l') { amount *= 1000; unit = 'ml'; }
+
+    const key = `${normalizeText(ingredient.name)}_${unit}`;
 
     if (map.has(key)) {
       const existing = map.get(key)!;
-      existing.totalAmount += ingredient.amount;
+      existing.totalAmount += amount;
       if (!existing.mealsContaining.includes(recipeName)) {
         existing.mealsContaining.push(recipeName);
       }
     } else {
       map.set(key, {
         name: ingredient.name,
-        totalAmount: ingredient.amount,
-        unit: ingredient.unit,
+        totalAmount: amount,
+        unit,
         purchased: false,
         mealsContaining: [recipeName],
       });
@@ -216,20 +258,22 @@ export const shoppingListService = {
 
   /**
    * Marca como "ya en casa" los items de la lista que coinciden con
-   * ingredientes de la despensa (match normalizado: substring en ambos
-   * sentidos o solape de palabras > 3 caracteres).
+   * ingredientes de la despensa. Match por palabras completas: todas las
+   * palabras de la entrada de despensa (la más genérica) deben aparecer en el
+   * nombre del ítem — "arroz" marca "arroz integral", pero "leche entera" ya
+   * no marca "leche de coco".
    */
   markPantryItems(list: ShoppingList, pantryNames: string[]): ShoppingList {
     if (pantryNames.length === 0) return list;
-    const normalizedPantry = pantryNames.map(normalizeText).filter(p => p.trim().length > 0);
+    const normalizedPantry = pantryNames.map(normalizeText).filter(p => p.length > 0);
 
     const matches = (itemName: string): boolean => {
       const item = normalizeText(itemName);
-      const itemWords = item.split(/\s+/).filter(w => w.length > 3);
+      const itemWords = new Set(item.split(' ').filter(w => w.length >= 3));
       return normalizedPantry.some(pantry => {
-        if (item.includes(pantry.trim()) || pantry.includes(item.trim())) return true;
-        const pantryWords = pantry.split(/\s+/).filter(w => w.length > 3);
-        return pantryWords.some(pw => itemWords.includes(pw));
+        if (item === pantry) return true;
+        const pantryWords = pantry.split(' ').filter(w => w.length >= 3);
+        return pantryWords.length > 0 && pantryWords.every(pw => itemWords.has(pw));
       });
     };
 
@@ -267,7 +311,8 @@ export const shoppingListService = {
       for (const item of cat.items) {
         const check = item.purchased ? '✓' : '□';
         const pantryTag = item.inPantry ? ' (ya en casa)' : '';
-        lines.push(`${check} ${item.name}: ${Math.round(item.totalAmount)}${item.unit}${pantryTag}`);
+        const qty = item.totalAmount > 0 ? `: ${Math.round(item.totalAmount)}${item.unit}` : '';
+        lines.push(`${check} ${item.name}${qty}${pantryTag}`);
       }
     }
     return lines.join('\n');

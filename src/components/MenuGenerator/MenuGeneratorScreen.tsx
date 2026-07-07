@@ -9,10 +9,11 @@ import { geminiService } from '../../services/geminiService';
 import { buildFullSelection, countSelected } from '../../utils/prompts';
 import { MealSelector } from './MealSelector';
 import { PantrySection } from './PantrySection';
+import { ProfileSection } from './ProfileSection';
 import type { MealSelection } from '../../types';
 
 const GEN_STEPS = [
-  { l: 'Analizando tus targets',        s: 'Mifflin-St Jeor · 3.290 kcal · L–V' },
+  { l: 'Analizando tus targets',        s: 'Objetivos de tu perfil · L–V' },
   { l: 'Buscando recetas variadas',     s: '+ histórico · despensa · vídeos' },
   { l: 'Equilibrando macros por comida',s: '5 tomas · ventana anabólica' },
   { l: 'Detallando guía batch',         s: 'Pasos exactos + plan de conservación' },
@@ -25,13 +26,16 @@ const GEN_STEPS = [
 const PROGRESS_MILESTONES = [10, 40, 45, 70, 80, 92, 100];
 
 export function MenuGeneratorScreen() {
-  const { isGenerating, generationProgress, error, currentMenu, menuHistory } = useAppStore();
+  const isGenerating = useAppStore(s => s.isGenerating);
+  const generationProgress = useAppStore(s => s.generationProgress);
+  const error = useAppStore(s => s.error);
+  const currentMenu = useAppStore(s => s.currentMenu);
+  const menuHistory = useAppStore(s => s.menuHistory);
+  const profile = useAppStore(s => s.profile);
   const { generateMenu } = useMenuGeneration();
   const { weekNumber, year } = getCurrentWeekAndYear();
   const lastGenDate = storageService.get<string>(STORAGE_KEYS.LAST_GEN_DATE);
   const geminiOk = geminiService.isConfigured();
-  // Generation just finished: setGenerating(false, '', 100) leaves progress at 100
-  const done = !isGenerating && generationProgress === 100 && !!currentMenu;
   const [creepProgress, setCreepProgress] = useState(0);
 
   const [selection, setSelection] = useState<MealSelection>(() => {
@@ -125,7 +129,7 @@ export function MenuGeneratorScreen() {
           </div>
 
           <p style={{ marginTop: 12, color: 'rgba(245,243,238,0.72)', fontSize: 13.5, lineHeight: 1.5, maxWidth: 320 }}>
-            25 comidas calibradas para 82,5 kg · crossfit · sin repetir las últimas 4 semanas.
+            25 comidas calibradas para {profile.weightKg.toLocaleString('es-ES')} kg · crossfit · sin repetir las últimas 4 semanas.
           </p>
 
           {/* Targets */}
@@ -135,10 +139,10 @@ export function MenuGeneratorScreen() {
             background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
           }}>
             {[
-              { k: 'kcal', v: '3.290', d: '/día',  c: 'var(--orange)' },
-              { k: 'P',    v: '165',   d: 'g',     c: 'var(--cobalt)' },
-              { k: 'C',    v: '454',   d: 'g',     c: 'var(--lime)' },
-              { k: 'F',    v: '91',    d: 'g',     c: 'var(--amber)' },
+              { k: 'kcal', v: profile.calories.toLocaleString('es-ES'), d: '/día', c: 'var(--orange)' },
+              { k: 'P',    v: String(profile.protein), d: 'g', c: 'var(--cobalt)' },
+              { k: 'C',    v: String(profile.carbs),   d: 'g', c: 'var(--lime)' },
+              { k: 'F',    v: String(profile.fat),     d: 'g', c: 'var(--amber)' },
             ].map((m, i) => (
               <div key={m.k} style={{
                 display: 'flex', flexDirection: 'column', gap: 4, flex: 1,
@@ -188,8 +192,6 @@ export function MenuGeneratorScreen() {
                 }} />
                 Generando…
               </>
-            ) : done ? (
-              <><Check size={18} strokeWidth={2.4} /> Menú listo · ver semana</>
             ) : selectedCount === 0 ? (
               <>Selecciona al menos una comida</>
             ) : (
@@ -200,6 +202,9 @@ export function MenuGeneratorScreen() {
 
         {/* ── Day/meal selector ── */}
         <MealSelector selection={selection} onChange={updateSelection} />
+
+        {/* ── Perfil nutricional editable ── */}
+        <ProfileSection />
 
         {/* ── Pantry: ingredientes a gastar ── */}
         <PantrySection />
@@ -241,9 +246,23 @@ export function MenuGeneratorScreen() {
 
         {/* ── Error ── */}
         {error && !isGenerating && (
-          <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 14, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-            <AlertCircle size={16} style={{ color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{error}</p>
+          <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 14, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <AlertCircle size={16} style={{ color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{error}</p>
+            </div>
+            <button
+              onClick={handleGenerate}
+              disabled={selectedCount === 0}
+              style={{
+                marginTop: 10, minHeight: 44, width: '100%', background: 'transparent',
+                border: '1px solid rgba(239,68,68,0.35)', borderRadius: 10, color: '#EF4444',
+                fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 13,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, cursor: 'pointer',
+              }}
+            >
+              <RotateCcw size={14} strokeWidth={2} /> Reintentar generación
+            </button>
           </div>
         )}
 
@@ -254,7 +273,7 @@ export function MenuGeneratorScreen() {
             <div style={{ marginTop: 8, fontFamily: 'var(--ff-display)', fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>
               Crossfit · 5 d/sem
             </div>
-            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>82,5 kg · L–V</div>
+            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }} className="num">{profile.weightKg.toLocaleString('es-ES')} kg · L–V</div>
           </div>
           <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 14 }}>
             <div className="eyebrow" style={{ fontSize: 10 }}>Anti-repetición</div>

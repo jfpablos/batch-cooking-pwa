@@ -21,9 +21,15 @@ Deno.serve(async (req) => {
     return json({ error: 'GEMINI_API_KEY no configurada en el servidor' }, 500);
   }
 
+  // Límite de tamaño: los prompts legítimos de la app quedan muy por debajo
+  const rawBody = await req.text();
+  if (rawBody.length > 512 * 1024) {
+    return json({ error: 'Petición demasiado grande' }, 413);
+  }
+
   let payload: { model?: string; body?: unknown };
   try {
-    payload = await req.json();
+    payload = JSON.parse(rawBody);
   } catch {
     return json({ error: 'Cuerpo JSON inválido' }, 400);
   }
@@ -31,6 +37,19 @@ Deno.serve(async (req) => {
   const { model, body } = payload;
   if (!model || !/^gemini-[\w.-]+$/.test(model) || typeof body !== 'object' || body === null) {
     return json({ error: 'Petición inválida: se espera { model: "gemini-…", body: {…} }' }, 400);
+  }
+
+  // Techo de maxOutputTokens: acota el coste por invocación aunque el cliente
+  // (autorizado) pida más.
+  const MAX_OUTPUT_TOKENS = 32768;
+  const generationConfig = (body as Record<string, unknown>).generationConfig as
+    | Record<string, unknown>
+    | undefined;
+  if (generationConfig) {
+    const requested = Number(generationConfig.maxOutputTokens);
+    generationConfig.maxOutputTokens = Number.isFinite(requested)
+      ? Math.min(requested, MAX_OUTPUT_TOKENS)
+      : MAX_OUTPUT_TOKENS;
   }
 
   const upstream = await fetch(

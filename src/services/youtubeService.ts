@@ -49,24 +49,28 @@ export class YouTubeService {
     if (!videos.length) return null;
 
     const recipeWords = normalizeText(recipeName)
-      .split(/\s+/)
+      .split(' ')
       .filter(w => w.length > 3);
 
     if (recipeWords.length === 0) return null;
 
+    // Palabras completas del título ("pollo" ya no casa con "repollo") y
+    // umbral de 2 coincidencias: una sola palabra común ("arroz") emparejaba
+    // casi cualquier vídeo equivocado.
+    const minScore = Math.min(2, recipeWords.length);
     let bestMatch: YouTubeVideo | null = null;
     let bestScore = 0;
 
     for (const video of videos) {
-      const videoTitle = normalizeText(video.title);
-      const score = recipeWords.filter(word => videoTitle.includes(word)).length;
-      if (score > bestScore && score >= 1) {
+      const titleWords = new Set(normalizeText(video.title).split(' '));
+      const score = recipeWords.filter(word => titleWords.has(word)).length;
+      if (score > bestScore) {
         bestScore = score;
         bestMatch = video;
       }
     }
 
-    return bestMatch;
+    return bestScore >= minScore ? bestMatch : null;
   }
 
   getEmbedUrl(videoId: string): string {
@@ -74,7 +78,8 @@ export class YouTubeService {
   }
 
   getThumbnailUrl(videoId: string): string {
-    return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+    // Mismo dominio que los thumbnails de la API para que Workbox los cachee
+    return `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
   }
 
   invalidateCache(): void {

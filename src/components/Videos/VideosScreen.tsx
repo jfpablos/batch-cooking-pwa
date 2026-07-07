@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Play, X, RefreshCw, Sparkles } from 'lucide-react';
 import { VideoModal } from '../Common/VideoModal';
 import { useAppStore } from '../../store/useAppStore';
 import { youtubeService } from '../../services/youtubeService';
 import { geminiService } from '../../services/geminiService';
 import { videoRecipeService } from '../../services/videoRecipeService';
+import { normalizeText } from '../../utils/textUtils';
 import type { AnalyzeProgress } from '../../services/videoRecipeService';
 import type { YouTubeVideo } from '../../types';
 
@@ -15,7 +16,9 @@ const TONES = [
 ];
 
 export function VideosScreen() {
-  const { youtubeVideos, setYoutubeVideos, showToast } = useAppStore();
+  const youtubeVideos = useAppStore(s => s.youtubeVideos);
+  const setYoutubeVideos = useAppStore(s => s.setYoutubeVideos);
+  const showToast = useAppStore(s => s.showToast);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -24,14 +27,23 @@ export function VideosScreen() {
 
   const isConfigured = youtubeService.isConfigured();
 
-  // Registro de recetas por vídeo (la IA analiza el contenido de cada vídeo)
-  const recipesByVideo = new Map<string, string[]>();
-  for (const entry of videoRecipeService.getCachedCatalog()) {
-    const list = recipesByVideo.get(entry.videoId) ?? [];
-    list.push(entry.name);
-    recipesByVideo.set(entry.videoId, list);
-  }
-  const pendingVideos = videoRecipeService.getPendingVideos(youtubeVideos);
+  // Registro de recetas por vídeo (la IA analiza el contenido de cada vídeo).
+  // `analyzing` invalida el memo cuando termina un análisis.
+  const recipesByVideo = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const entry of videoRecipeService.getCachedCatalog()) {
+      const list = map.get(entry.videoId) ?? [];
+      list.push(entry.name);
+      map.set(entry.videoId, list);
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `analyzing` invalida la caché externa al terminar cada análisis
+  }, [analyzing]);
+  const pendingVideos = useMemo(
+    () => videoRecipeService.getPendingVideos(youtubeVideos),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ídem
+    [youtubeVideos, analyzing]
+  );
   const canAnalyze = geminiService.isConfigured() && pendingVideos.length > 0;
 
   const handleAnalyze = async () => {
@@ -68,13 +80,11 @@ export function VideosScreen() {
     if (isConfigured && youtubeVideos.length === 0) loadVideos();
   }, [isConfigured, youtubeVideos.length, loadVideos]);
 
-  const filteredVideos = search.trim()
-    ? youtubeVideos.filter(v =>
-        v.title.toLowerCase()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          .includes(search.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
-      )
-    : youtubeVideos;
+  const filteredVideos = useMemo(() => {
+    const q = normalizeText(search);
+    if (!q) return youtubeVideos;
+    return youtubeVideos.filter(v => normalizeText(v.title).includes(q));
+  }, [youtubeVideos, search]);
 
   if (!isConfigured) {
     return (

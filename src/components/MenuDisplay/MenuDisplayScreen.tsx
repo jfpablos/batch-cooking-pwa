@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { ShoppingCart, RotateCcw, ArrowRight, Sparkles, MapPin, Zap } from 'lucide-react';
+import { ShoppingCart, RotateCcw, ArrowRight, Sparkles, MapPin, Zap, Check, RefreshCw } from 'lucide-react';
 import { RecipeDetailModal } from './RecipeDetailModal';
+import { EmptyState } from '../Common/EmptyState';
 import { useAppStore } from '../../store/useAppStore';
+import { useMealSwap } from '../../hooks/useMealSwap';
 import { menuService } from '../../services/menuService';
-import type { BaseRecipe, DayMenu } from '../../types';
+import { dayTargetKcal, scaledMealTargets, MEAL_KEYS } from '../../utils/constants';
+import type { BaseRecipe, DayMenu, MealKey } from '../../types';
 
 const DAY_LABELS: Record<string, { short: string; label: string; date: string }> = {
   lunes:     { short: 'LUN', label: 'Lunes',     date: '' },
@@ -36,37 +39,47 @@ function MacroChip({ label, value, color }: MacroChipProps) {
 }
 
 export function MenuDisplayScreen() {
-  const { currentMenu, setActiveTab } = useAppStore();
+  const currentMenu = useAppStore(s => s.currentMenu);
+  const shoppingList = useAppStore(s => s.shoppingList);
+  const setActiveTab = useAppStore(s => s.setActiveTab);
+  const profile = useAppStore(s => s.profile);
+  const mealLog = useAppStore(s => s.mealLog);
+  const toggleMealDone = useAppStore(s => s.toggleMealDone);
+  const { swapMeal, swapping } = useMealSwap();
   const [dayIdx, setDayIdx] = useState(0);
   const [selectedRecipe, setSelectedRecipe] = useState<BaseRecipe | null>(null);
 
   if (!currentMenu) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-8 text-center gap-5" style={{ paddingTop: 'var(--safe-area-top)' }}>
-        <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--cream-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>
-          📅
-        </div>
-        <div>
-          <p className="display" style={{ fontSize: 22 }}>Sin menú generado</p>
-          <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 6 }}>Ve a "Generar" y crea tu menú semanal</p>
-        </div>
-        <button
-          onClick={() => setActiveTab(0)}
-          style={{
-            minHeight: 48, padding: '0 24px', background: 'var(--orange)', color: '#fff',
-            border: 'none', borderRadius: 12, fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15,
-            display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-          }}
-        >
-          <Sparkles size={18} /> Ir a Generar
-        </button>
-      </div>
+      <EmptyState
+        icon="📅"
+        title="Sin menú generado"
+        subtitle='Ve a "Generar" y crea tu menú semanal'
+        ctaLabel={<><Sparkles size={18} /> Ir a Generar</>}
+        onCta={() => setActiveTab(0)}
+      />
     );
   }
 
   const day: DayMenu = currentMenu.days[dayIdx];
   const getRecipe = (name: string) => menuService.getRecipeFromMenu(currentMenu, name);
   const dayKeys = currentMenu.days.map(d => d.day);
+
+  // Objetivo kcal del día: solo comidas planificadas, escalado al perfil
+  const mealTargets = scaledMealTargets(profile);
+  const skippedByMeal = Object.fromEntries(
+    Object.entries(day.meals).map(([k, m]) => [k, !!m.isSkipped])
+  ) as Record<MealKey, boolean>;
+  const targetKcal = dayTargetKcal(skippedByMeal, mealTargets);
+
+  // Adherencia del día (comidas marcadas como hechas)
+  const dayLog = mealLog?.menuId === currentMenu.id ? mealLog.done[day.day] ?? {} : {};
+  const plannedCount = MEAL_KEYS.filter(k => !day.meals[k].isSkipped).length;
+  const doneCount = MEAL_KEYS.filter(k => !day.meals[k].isSkipped && dayLog[k]).length;
+
+  // Punto del carrito solo si quedan ítems por comprar
+  const pendingShoppingItems = (shoppingList?.categories ?? [])
+    .reduce((acc, c) => acc + c.items.filter(i => !i.purchased && !i.inPantry).length, 0);
 
   return (
     <>
@@ -97,7 +110,9 @@ export function MenuDisplayScreen() {
               title="Lista de compra"
             >
               <ShoppingCart size={18} style={{ color: 'var(--ink)' }} />
-              <span style={{ position: 'absolute', top: 7, right: 7, width: 7, height: 7, borderRadius: 999, background: 'var(--orange)' }} />
+              {pendingShoppingItems > 0 && (
+                <span style={{ position: 'absolute', top: 7, right: 7, width: 7, height: 7, borderRadius: 999, background: 'var(--orange)' }} />
+              )}
             </button>
           </div>
         </div>
@@ -138,6 +153,12 @@ export function MenuDisplayScreen() {
                 <span className="num display-tight" style={{ fontSize: 30 }}>{day.totalNutrition.calories.toLocaleString('es-ES')}</span>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' as const, letterSpacing: '0.1em' }}>kcal</span>
               </div>
+              {plannedCount > 0 && (
+                <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: doneCount === plannedCount ? '#5A9A2E' : 'var(--muted)' }}>
+                  <Check size={12} strokeWidth={2.6} />
+                  <span className="num">{doneCount}/{plannedCount}</span> comidas hechas
+                </div>
+              )}
             </div>
             {/* progress ring */}
             <div style={{ position: 'relative', width: 56, height: 56 }}>
@@ -146,11 +167,11 @@ export function MenuDisplayScreen() {
                 <circle cx="28" cy="28" r="22" fill="none" stroke="var(--orange)" strokeWidth="5"
                   strokeLinecap="round"
                   strokeDasharray="138.2"
-                  strokeDashoffset={138.2 * (1 - Math.min(day.totalNutrition.calories / 3290, 1))}
+                  strokeDashoffset={138.2 * (1 - Math.min(day.totalNutrition.calories / targetKcal, 1))}
                   transform="rotate(-90 28 28)"/>
               </svg>
               <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontFamily: 'var(--ff-display)', fontSize: 13, fontWeight: 700 }} className="num">
-                {Math.round(day.totalNutrition.calories / 3290 * 100)}%
+                {Math.round(day.totalNutrition.calories / targetKcal * 100)}%
               </div>
             </div>
           </div>
@@ -209,15 +230,22 @@ export function MenuDisplayScreen() {
 
             const recipe = getRecipe(meal.recipeName);
             const isFresh = !!recipe && menuService.isFreshRecipe(recipe);
+            const mealKey = key as MealKey;
+            const isDone = !!dayLog[mealKey];
+            const isSwapping = swapping?.day === day.day && swapping?.meal === mealKey;
 
             return (
-              <button
+              <div
                 key={key}
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   if (recipe) setSelectedRecipe(recipe);
                 }}
+                onKeyDown={e => {
+                  if ((e.key === 'Enter' || e.key === ' ') && recipe) setSelectedRecipe(recipe);
+                }}
                 style={{
-                  all: 'unset' as const,
                   cursor: 'pointer',
                   width: '100%',
                   boxSizing: 'border-box' as const,
@@ -227,6 +255,8 @@ export function MenuDisplayScreen() {
                   display: 'flex',
                   alignItems: 'stretch',
                   overflow: 'hidden',
+                  opacity: isDone ? 0.6 : 1,
+                  transition: 'opacity .2s',
                 }}
               >
                 <div className={`stripe stripe-${stripe}`} />
@@ -268,9 +298,48 @@ export function MenuDisplayScreen() {
                       </span>
                     </div>
                   </div>
-                  <ArrowRight size={16} style={{ color: 'var(--muted-2)', flexShrink: 0 }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                    <button
+                      aria-label={isDone ? 'Desmarcar comida hecha' : 'Marcar comida como hecha'}
+                      aria-pressed={isDone}
+                      onClick={e => { e.stopPropagation(); toggleMealDone(currentMenu.id, day.day, mealKey); }}
+                      style={{
+                        all: 'unset' as const, cursor: 'pointer',
+                        width: 30, height: 30, borderRadius: 999,
+                        background: isDone ? '#5A9A2E' : 'var(--cream-2)',
+                        border: '1px solid ' + (isDone ? '#5A9A2E' : 'var(--line)'),
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxSizing: 'border-box' as const,
+                      }}
+                    >
+                      <Check size={14} strokeWidth={2.6} style={{ color: isDone ? '#fff' : 'var(--muted-2)' }} />
+                    </button>
+                    <button
+                      aria-label="Cambiar esta comida por otra receta"
+                      disabled={!!swapping}
+                      onClick={e => { e.stopPropagation(); void swapMeal(day.day, mealKey); }}
+                      style={{
+                        all: 'unset' as const, cursor: swapping ? 'wait' : 'pointer',
+                        width: 30, height: 30, borderRadius: 999,
+                        background: 'var(--cream-2)', border: '1px solid var(--line)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxSizing: 'border-box' as const,
+                        opacity: swapping && !isSwapping ? 0.4 : 1,
+                      }}
+                    >
+                      <RefreshCw
+                        size={13}
+                        strokeWidth={2.2}
+                        style={{
+                          color: 'var(--muted)',
+                          animation: isSwapping ? 'spin 0.8s linear infinite' : undefined,
+                        }}
+                      />
+                    </button>
+                    <ArrowRight size={14} style={{ color: 'var(--muted-2)' }} />
+                  </div>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>

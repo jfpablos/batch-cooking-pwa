@@ -1,5 +1,6 @@
 import type { ConservationEntry, DayName, WeeklyMenu } from '../types';
 import { menuService } from '../services/menuService';
+import { DAYS as DAY_ORDER } from './constants';
 
 // Días transcurridos desde el domingo de batch cooking hasta el consumo
 const DAY_OFFSET: Record<DayName, number> = {
@@ -9,8 +10,6 @@ const DAY_OFFSET: Record<DayName, number> = {
   jueves: 4,
   viernes: 5,
 };
-
-const DAY_ORDER: DayName[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
 
 /**
  * Plan de conservación básico derivado de los campos "storage" de cada receta
@@ -33,11 +32,13 @@ export function buildBasicConservationPlan(menu: WeeklyMenu): ConservationEntry[
     const lastDay = days[days.length - 1];
     const lastOffset = lastDay ? DAY_OFFSET[lastDay] : 0;
 
+    // Respeta la vida útil real declarada por la receta: si aguanta 5 días en
+    // nevera, las raciones de jueves/viernes no necesitan congelador.
     const fridgeDays = recipe?.storage.days ?? 4;
     const freezable = recipe?.storage.freezable ?? false;
-    const needsFreezing = freezable && lastOffset > Math.min(fridgeDays, 3);
+    const needsFreezing = freezable && lastOffset > fridgeDays;
 
-    const lateDays = days.filter(d => DAY_OFFSET[d] > Math.min(fridgeDays, 3));
+    const lateDays = days.filter(d => DAY_OFFSET[d] > fridgeDays);
 
     const base: ConservationEntry = {
       recipeName: entry.recipeName,

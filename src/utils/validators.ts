@@ -2,14 +2,12 @@ import type {
   GeneratedMenuResponse,
   GeneratedGuideResponse,
   MealSelection,
-  DayName,
   MealKey,
   ConservationMethod,
 } from '../types';
 import { buildFullSelection } from './prompts';
-
-const DAYS: DayName[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
-const MEAL_KEYS: MealKey[] = ['desayuno', 'preEntreno', 'principal', 'postEntreno', 'cena'];
+import { findBestNameMatch } from './textUtils';
+import { DAYS, MEAL_KEYS } from './constants';
 
 export function validateMenuResponse(
   data: unknown,
@@ -79,9 +77,28 @@ export function validateMenuResponse(
       if (!r.name) errors.push('Receta sin nombre');
       if (!r.ingredients || !Array.isArray(r.ingredients)) {
         errors.push(`Receta "${r.name}" sin ingredientes`);
+      } else {
+        for (const ing of r.ingredients as Record<string, unknown>[]) {
+          if (!ing.name || typeof ing.name !== 'string') {
+            errors.push(`Receta "${r.name}" con ingrediente sin nombre`);
+          }
+          if (typeof ing.amount !== 'number' || !Number.isFinite(ing.amount)) {
+            errors.push(`Receta "${r.name}": ingrediente "${ing.name}" con "amount" no numérico`);
+          }
+          if (!ing.unit || typeof ing.unit !== 'string') {
+            errors.push(`Receta "${r.name}": ingrediente "${ing.name}" sin "unit"`);
+          }
+        }
       }
       if (!r.nutrition || typeof r.nutrition !== 'object') {
         errors.push(`Receta "${r.name}" sin nutrición`);
+      } else {
+        const n = r.nutrition as Record<string, unknown>;
+        for (const field of ['calories', 'protein', 'carbs', 'fat'] as const) {
+          if (typeof n[field] !== 'number' || !Number.isFinite(n[field])) {
+            errors.push(`Receta "${r.name}": nutrición sin "${field}" numérico`);
+          }
+        }
       }
     }
   }
@@ -151,12 +168,9 @@ export function sanitizeGuideResponse(
 
   const fixName = (name: string): string | null => {
     if (nameSet.has(name)) return name;
-    const lower = (name ?? '').toLowerCase();
-    const similar = recipeNames.find(
-      r => r.toLowerCase().includes(lower.substring(0, 10)) ||
-           lower.includes(r.toLowerCase().substring(0, 10))
-    );
-    return similar ?? null;
+    // Solape de palabras completas: evita que dos recetas con el mismo
+    // prefijo ("Ternera guisada con arroz" / "...con puré") se confundan.
+    return findBestNameMatch(name ?? '', recipeNames);
   };
 
   const tasks = (data.tasks ?? [])
@@ -204,7 +218,8 @@ export function sanitizeMenuResponse(
   data: GeneratedMenuResponse,
   selection: MealSelection = buildFullSelection()
 ): GeneratedMenuResponse {
-  const recipeNames = new Set(data.recipes.map(r => r.name));
+  const allNames = data.recipes.map(r => r.name);
+  const recipeNames = new Set(allNames);
 
   // Verify references exist in recipes — only for selected cells
   for (const day of DAYS) {
@@ -217,11 +232,9 @@ export function sanitizeMenuResponse(
     for (const meal of selectedKeys) {
       const recipeName = dayBag[meal];
       if (recipeName && !recipeNames.has(recipeName)) {
-        const similar = data.recipes.find(r =>
-          r.name.toLowerCase().includes(recipeName.toLowerCase().substring(0, 10))
-        );
+        const similar = findBestNameMatch(recipeName, allNames);
         if (similar) {
-          dayBag[meal] = similar.name;
+          dayBag[meal] = similar;
         }
       }
     }

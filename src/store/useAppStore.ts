@@ -1,8 +1,17 @@
 import { create } from 'zustand';
-import type { AppState, WeeklyMenu, ShoppingList, BatchCookingGuide, StoredWeek, PantryItem } from '../types';
+import type { AppState, WeeklyMenu, ShoppingList, BatchCookingGuide, StoredWeek, PantryItem, UserProfile, RecipePrefs, MealLog } from '../types';
 import { storageService } from '../services/storageService';
 import { STORAGE_KEYS } from '../utils/storageKeys';
 import { normalizeText } from '../utils/textUtils';
+import { DEFAULT_PROFILE } from '../utils/constants';
+
+function loadProfile(): UserProfile {
+  return { ...DEFAULT_PROFILE, ...storageService.get<Partial<UserProfile>>(STORAGE_KEYS.PROFILE) };
+}
+
+function loadPrefs(): RecipePrefs {
+  return { favorites: [], banned: [], ...storageService.get<Partial<RecipePrefs>>(STORAGE_KEYS.RECIPE_PREFS) };
+}
 
 export const useAppStore = create<AppState>((set, get) => ({
   // Data
@@ -13,6 +22,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   youtubeVideos: [],
   pantryItems: storageService.get<PantryItem[]>(STORAGE_KEYS.PANTRY) ?? [],
   activeTimer: null,
+  profile: loadProfile(),
+  recipePrefs: loadPrefs(),
+  mealLog: storageService.get<MealLog>(STORAGE_KEYS.MEAL_LOG),
 
   // UI
   activeTab: 0,
@@ -34,6 +46,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       batchGuide: storageService.get<BatchCookingGuide>(STORAGE_KEYS.BATCH_GUIDE),
       menuHistory: storageService.get<{ history: StoredWeek[] }>(STORAGE_KEYS.MENU_HISTORY)?.history ?? [],
       pantryItems: storageService.get<PantryItem[]>(STORAGE_KEYS.PANTRY) ?? [],
+      profile: loadProfile(),
+      recipePrefs: loadPrefs(),
+      mealLog: storageService.get<MealLog>(STORAGE_KEYS.MEAL_LOG),
     }),
   setCurrentMenu: (menu) => set({ currentMenu: menu }),
   setShoppingList: (list) => set({ shoppingList: list }),
@@ -54,6 +69,43 @@ export const useAppStore = create<AppState>((set, get) => ({
     const updated = get().pantryItems.filter(p => p.id !== id);
     storageService.set(STORAGE_KEYS.PANTRY, updated);
     set({ pantryItems: updated });
+  },
+  setProfile: (profile) => {
+    storageService.set(STORAGE_KEYS.PROFILE, profile);
+    set({ profile });
+  },
+  toggleFavorite: (recipeName) => {
+    const prefs = get().recipePrefs;
+    const isFav = prefs.favorites.includes(recipeName);
+    const updated: RecipePrefs = {
+      favorites: isFav ? prefs.favorites.filter(n => n !== recipeName) : [...prefs.favorites, recipeName],
+      // Una receta no puede ser favorita y vetada a la vez
+      banned: prefs.banned.filter(n => n !== recipeName),
+    };
+    storageService.set(STORAGE_KEYS.RECIPE_PREFS, updated);
+    set({ recipePrefs: updated });
+  },
+  toggleBanned: (recipeName) => {
+    const prefs = get().recipePrefs;
+    const isBanned = prefs.banned.includes(recipeName);
+    const updated: RecipePrefs = {
+      banned: isBanned ? prefs.banned.filter(n => n !== recipeName) : [...prefs.banned, recipeName],
+      favorites: prefs.favorites.filter(n => n !== recipeName),
+    };
+    storageService.set(STORAGE_KEYS.RECIPE_PREFS, updated);
+    set({ recipePrefs: updated });
+  },
+  toggleMealDone: (menuId, day, meal) => {
+    const current = get().mealLog;
+    // Registro nuevo al cambiar de menú (semana nueva → adherencia a cero)
+    const log: MealLog = current && current.menuId === menuId
+      ? { ...current, done: { ...current.done } }
+      : { menuId, done: {} };
+    const dayLog = { ...(log.done[day] ?? {}) };
+    dayLog[meal] = !dayLog[meal];
+    log.done[day] = dayLog;
+    storageService.set(STORAGE_KEYS.MEAL_LOG, log);
+    set({ mealLog: log });
   },
   startTimer: (taskOrder, seconds) =>
     set({

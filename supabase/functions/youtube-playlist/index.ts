@@ -16,6 +16,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    return json({ error: 'Método no soportado' }, 405);
+  }
 
   const denied = await requireAllowedUser(req);
   if (denied) return denied;

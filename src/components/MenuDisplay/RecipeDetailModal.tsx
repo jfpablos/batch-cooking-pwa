@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { X, Clock, Flame, Play } from 'lucide-react';
+import { X, Clock, Flame, Play, Heart, Ban } from 'lucide-react';
 import { VideoModal } from '../Common/VideoModal';
 import { youtubeService } from '../../services/youtubeService';
 import { useAppStore } from '../../store/useAppStore';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { CATEGORY_TO_MEAL, scaledMealTargets } from '../../utils/constants';
 import type { BaseRecipe, YouTubeVideo } from '../../types';
 
 interface RecipeDetailModalProps {
@@ -35,8 +37,13 @@ function MacroBar({ label, value, target, color }: { label: string; value: numbe
 }
 
 export function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDetailModalProps) {
-  const { youtubeVideos } = useAppStore();
+  const youtubeVideos = useAppStore(s => s.youtubeVideos);
+  const profile = useAppStore(s => s.profile);
+  const recipePrefs = useAppStore(s => s.recipePrefs);
+  const toggleFavorite = useAppStore(s => s.toggleFavorite);
+  const toggleBanned = useAppStore(s => s.toggleBanned);
   const [videoOpen, setVideoOpen] = useState(false);
+  useModalDismiss(isOpen && !!recipe, onClose);
 
   if (!isOpen || !recipe) return null;
 
@@ -53,6 +60,12 @@ export function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDetailModal
       : null;
 
   const cat = CATEGORY_COLORS[recipe.category] ?? { label: recipe.category, color: 'var(--orange)', stripe: '' };
+  // Targets de macros de la comida a la que pertenece la receta, escalados al
+  // perfil (un desayuno no se compara con la proteína de la comida principal)
+  const mealTargets = scaledMealTargets(profile);
+  const targets = mealTargets[CATEGORY_TO_MEAL[recipe.category]] ?? mealTargets.principal;
+  const isFavorite = recipePrefs.favorites.includes(recipe.name);
+  const isBanned = recipePrefs.banned.includes(recipe.name);
 
   return (
     <>
@@ -69,6 +82,9 @@ export function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDetailModal
         {/* Sheet */}
         <div
           onClick={e => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label={recipe.name}
           className="slide-up"
           style={{
             background: 'var(--cream)', borderTopLeftRadius: 26, borderTopRightRadius: 26,
@@ -93,16 +109,52 @@ export function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDetailModal
                 </div>
                 <div className="display-tight" style={{ fontSize: 24, marginTop: 6, lineHeight: 1.15 }}>{recipe.name}</div>
               </div>
-              <button
-                onClick={onClose}
-                style={{
-                  width: 36, height: 36, borderRadius: 999, background: 'var(--card)', border: '1px solid var(--line)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
-                }}
-              >
-                <X size={16} style={{ color: 'var(--ink)' }} />
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <button
+                  onClick={() => toggleFavorite(recipe.name)}
+                  aria-label={isFavorite ? 'Quitar de favoritas' : 'Marcar como favorita'}
+                  aria-pressed={isFavorite}
+                  title="Favorita: la IA podrá repetirla o inspirarse en ella"
+                  style={{
+                    width: 36, height: 36, borderRadius: 999,
+                    background: isFavorite ? 'rgba(239,68,68,0.1)' : 'var(--card)',
+                    border: '1px solid ' + (isFavorite ? 'rgba(239,68,68,0.4)' : 'var(--line)'),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                  }}
+                >
+                  <Heart size={16} style={{ color: isFavorite ? '#EF4444' : 'var(--muted)' }} fill={isFavorite ? '#EF4444' : 'none'} />
+                </button>
+                <button
+                  onClick={() => toggleBanned(recipe.name)}
+                  aria-label={isBanned ? 'Quitar veto' : 'Vetar receta'}
+                  aria-pressed={isBanned}
+                  title="Vetada: no volverá a aparecer en menús generados"
+                  style={{
+                    width: 36, height: 36, borderRadius: 999,
+                    background: isBanned ? 'rgba(15,12,8,0.85)' : 'var(--card)',
+                    border: '1px solid ' + (isBanned ? 'var(--ink)' : 'var(--line)'),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                  }}
+                >
+                  <Ban size={16} style={{ color: isBanned ? '#fff' : 'var(--muted)' }} />
+                </button>
+                <button
+                  onClick={onClose}
+                  aria-label="Cerrar"
+                  style={{
+                    width: 36, height: 36, borderRadius: 999, background: 'var(--card)', border: '1px solid var(--line)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                  }}
+                >
+                  <X size={16} style={{ color: 'var(--ink)' }} />
+                </button>
+              </div>
             </div>
+            {isBanned && (
+              <div style={{ marginTop: 10, fontSize: 11.5, color: '#EF4444', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Ban size={12} /> Vetada: no volverá a aparecer en los próximos menús
+              </div>
+            )}
 
             {/* Meta chips */}
             <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
@@ -153,9 +205,9 @@ export function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDetailModal
               </div>
               <div style={{ width: 1, background: 'var(--line)' }} />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
-                <MacroBar label="Proteína" value={recipe.nutrition.protein} target={50} color="var(--cobalt)" />
-                <MacroBar label="Carbos"   value={recipe.nutrition.carbs}   target={123} color="var(--lime)" />
-                <MacroBar label="Grasa"    value={recipe.nutrition.fat}     target={27} color="var(--amber)" />
+                <MacroBar label="Proteína" value={recipe.nutrition.protein} target={targets.protein} color="var(--cobalt)" />
+                <MacroBar label="Carbos"   value={recipe.nutrition.carbs}   target={targets.carbs} color="var(--lime)" />
+                <MacroBar label="Grasa"    value={recipe.nutrition.fat}     target={targets.fat} color="var(--amber)" />
               </div>
             </div>
           </div>

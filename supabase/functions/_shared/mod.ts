@@ -40,11 +40,15 @@ export async function requireAllowedUser(req: Request): Promise<Response | null>
     .map(e => e.trim().toLowerCase())
     .filter(Boolean);
 
-  if (allowed.length > 0) {
-    const email = (data.user.email ?? '').toLowerCase();
-    if (!allowed.includes(email)) {
-      return json({ error: `Usuario ${email} no autorizado` }, 403);
-    }
+  // Denegar por defecto: sin lista configurada, cualquier cuenta de Google
+  // del mundo podría consumir la cuota de Gemini/YouTube.
+  if (allowed.length === 0) {
+    return json({ error: 'ALLOWED_EMAILS no configurado en el servidor — acceso denegado' }, 403);
+  }
+
+  const email = (data.user.email ?? '').toLowerCase();
+  if (!allowed.includes(email)) {
+    return json({ error: `Usuario ${email} no autorizado` }, 403);
   }
 
   return null;

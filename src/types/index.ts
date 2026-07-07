@@ -311,6 +311,36 @@ export interface VideoRecipeCatalog {
 }
 
 // =============================================
+// PERFIL NUTRICIONAL (editable en la app)
+// =============================================
+
+export interface UserProfile {
+  weightKg: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+// =============================================
+// PREFERENCIAS DE RECETAS (favoritas / vetadas)
+// =============================================
+
+export interface RecipePrefs {
+  favorites: string[];
+  banned: string[];
+}
+
+// =============================================
+// REGISTRO DE COMIDAS CONSUMIDAS (adherencia)
+// =============================================
+
+export interface MealLog {
+  menuId: string;
+  done: Partial<Record<DayName, Partial<Record<MealKey, boolean>>>>;
+}
+
+// =============================================
 // DESPENSA (ingredientes a gastar)
 // =============================================
 
@@ -347,8 +377,6 @@ export interface BatchProgress {
 // APP STATE (Zustand)
 // =============================================
 
-export type GenerationStatus = 'idle' | 'loading' | 'success' | 'error';
-
 export interface AppState {
   // Data
   currentMenu: WeeklyMenu | null;
@@ -358,6 +386,9 @@ export interface AppState {
   youtubeVideos: YouTubeVideo[];
   pantryItems: PantryItem[];
   activeTimer: ActiveTimer | null;
+  profile: UserProfile;
+  recipePrefs: RecipePrefs;
+  mealLog: MealLog | null;
 
   // UI
   activeTab: number;
@@ -377,6 +408,10 @@ export interface AppState {
   setYoutubeVideos: (videos: YouTubeVideo[]) => void;
   addPantryItem: (name: string) => void;
   removePantryItem: (id: string) => void;
+  setProfile: (profile: UserProfile) => void;
+  toggleFavorite: (recipeName: string) => void;
+  toggleBanned: (recipeName: string) => void;
+  toggleMealDone: (menuId: string, day: DayName, meal: MealKey) => void;
   startTimer: (taskOrder: number, seconds: number) => void;
   pauseTimer: () => void;
   resumeTimer: () => void;

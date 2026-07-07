@@ -52,7 +52,9 @@ npx supabase link --project-ref TU-PROJECT-REF      # idem
 npx supabase secrets set GEMINI_API_KEY=AIzaSy...
 npx supabase secrets set YOUTUBE_API_KEY=AIzaSy...
 npx supabase secrets set YOUTUBE_PLAYLIST_ID=PLbo-TdcEj2O95G6vwvMz4ukm8hmkHHe09
-# Solo estos emails podrán usar Gemini/YouTube a través de tu backend:
+# OBLIGATORIO — solo estos emails podrán usar Gemini/YouTube a través de tu
+# backend. Sin este secret las funciones deniegan TODAS las peticiones
+# (denegar por defecto: si no, cualquier cuenta de Google quemaría tu cuota).
 npx supabase secrets set ALLOWED_EMAILS=jfpablos@gmail.com
 
 # Desplegar las funciones

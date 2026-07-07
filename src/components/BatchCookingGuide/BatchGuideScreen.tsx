@@ -6,8 +6,10 @@ import { storageService } from '../../services/storageService';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { buildBasicConservationPlan } from '../../utils/conservationFallback';
 import { useTimer, formatTimer } from '../../hooks/useTimer';
+import { useWakeLock } from '../../hooks/useWakeLock';
 import { unlockAudio } from '../../utils/alarm';
 import { ConservationCard } from './ConservationCard';
+import { EmptyState } from '../Common/EmptyState';
 import type { BaseRecipe, BatchProgress, ConservationEntry } from '../../types';
 
 interface NormTask {
@@ -50,11 +52,20 @@ function loadProgress(): BatchProgress | null {
 }
 
 export function BatchGuideScreen() {
-  const { currentMenu, batchGuide, setActiveTab, startTimer, pauseTimer, resumeTimer, resetTimer } = useAppStore();
+  const currentMenu = useAppStore(s => s.currentMenu);
+  const batchGuide = useAppStore(s => s.batchGuide);
+  const setActiveTab = useAppStore(s => s.setActiveTab);
+  const startTimer = useAppStore(s => s.startTimer);
+  const pauseTimer = useAppStore(s => s.pauseTimer);
+  const resumeTimer = useAppStore(s => s.resumeTimer);
+  const resetTimer = useAppStore(s => s.resetTimer);
   const { activeTimer, remaining } = useTimer();
   const [done, setDone] = useState<Set<number>>(() => new Set(loadProgress()?.done ?? []));
   const [cooking, setCooking] = useState(() => loadProgress()?.cooking ?? false);
   const [current, setCurrent] = useState<number | null>(() => loadProgress()?.current ?? null);
+
+  // En modo cocinar la pantalla no se apaga (manos ocupadas en la cocina)
+  useWakeLock(cooking);
 
   // Scroll the active task into view when step-by-step mode advances.
   useEffect(() => {
@@ -73,28 +84,14 @@ export function BatchGuideScreen() {
 
   if (!currentMenu) {
     return (
-      <div
-        className="h-full flex flex-col items-center justify-center p-8 text-center gap-5"
-        style={{ paddingTop: 'var(--safe-area-top)' }}
-      >
-        <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(255,107,53,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>
-          🔥
-        </div>
-        <div>
-          <p className="display" style={{ fontSize: 22 }}>Sin guía disponible</p>
-          <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 6 }}>Genera un menú primero para obtener tu guía</p>
-        </div>
-        <button
-          onClick={() => setActiveTab(0)}
-          style={{
-            minHeight: 48, padding: '0 24px', background: 'var(--orange)', color: '#fff',
-            border: 'none', borderRadius: 12, fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15,
-            display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-          }}
-        >
-          <Sparkles size={18} /> Generar menú
-        </button>
-      </div>
+      <EmptyState
+        icon="🔥"
+        iconBackground="rgba(255,107,53,0.1)"
+        title="Sin guía disponible"
+        subtitle="Genera un menú primero para obtener tu guía"
+        ctaLabel={<><Sparkles size={18} /> Generar menú</>}
+        onCta={() => setActiveTab(0)}
+      />
     );
   }
 

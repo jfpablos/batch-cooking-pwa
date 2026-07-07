@@ -11,7 +11,8 @@ const TABS = [
 ];
 
 export function BottomNav() {
-  const { activeTab, setActiveTab } = useAppStore();
+  const activeTab = useAppStore(s => s.activeTab);
+  const setActiveTab = useAppStore(s => s.setActiveTab);
 
   return (
     <nav

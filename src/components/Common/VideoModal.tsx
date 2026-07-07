@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Play } from 'lucide-react';
 import type { YouTubeVideo } from '../../types';
 import { youtubeService } from '../../services/youtubeService';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 interface VideoModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface VideoModalProps {
 export function VideoModal({ isOpen, onClose, video }: VideoModalProps) {
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [iframeStarted, setIframeStarted] = useState(false);
+  useModalDismiss(isOpen && !!video, onClose);
 
   if (!isOpen || !video) return null;
 
@@ -26,6 +28,9 @@ export function VideoModal({ isOpen, onClose, video }: VideoModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.9)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={video.title}
     >
       <div className="w-full max-w-2xl">
         {/* Header */}

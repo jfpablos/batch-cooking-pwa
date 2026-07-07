@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Share2, FileDown, Sparkles } from 'lucide-react';
 import { CategoryGroup } from './CategoryGroup';
+import { EmptyState } from '../Common/EmptyState';
 import { useAppStore } from '../../store/useAppStore';
 import { shoppingListService } from '../../services/shoppingListService';
 import { storageService } from '../../services/storageService';
@@ -8,33 +9,22 @@ import { STORAGE_KEYS } from '../../utils/storageKeys';
 import type { ShoppingCategoryName } from '../../types';
 
 export function ShoppingListScreen() {
-  const { shoppingList, setShoppingList, setActiveTab, currentMenu } = useAppStore();
+  const shoppingList = useAppStore(s => s.shoppingList);
+  const setShoppingList = useAppStore(s => s.setShoppingList);
+  const setActiveTab = useAppStore(s => s.setActiveTab);
+  const currentMenu = useAppStore(s => s.currentMenu);
+  const showToast = useAppStore(s => s.showToast);
   const [copying, setCopying] = useState(false);
 
   if (!shoppingList) {
     return (
-      <div
-        className="h-full flex flex-col items-center justify-center p-8 text-center gap-5"
-        style={{ paddingTop: 'var(--safe-area-top)' }}
-      >
-        <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--cream-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>
-          🛒
-        </div>
-        <div>
-          <p className="display" style={{ fontSize: 22 }}>Sin lista de compra</p>
-          <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 6 }}>Genera un menú primero para obtener tu lista</p>
-        </div>
-        <button
-          onClick={() => setActiveTab(0)}
-          style={{
-            minHeight: 48, padding: '0 24px', background: 'var(--orange)', color: '#fff',
-            border: 'none', borderRadius: 12, fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15,
-            display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-          }}
-        >
-          <Sparkles size={18} /> Generar menú
-        </button>
-      </div>
+      <EmptyState
+        icon="🛒"
+        title="Sin lista de compra"
+        subtitle="Genera un menú primero para obtener tu lista"
+        ctaLabel={<><Sparkles size={18} /> Generar menú</>}
+        onCta={() => setActiveTab(0)}
+      />
     );
   }
 
@@ -54,7 +44,9 @@ export function ShoppingListScreen() {
       await navigator.clipboard.writeText(text);
       setCopying(true);
       setTimeout(() => setCopying(false), 2000);
-    } catch { /* ignore */ }
+    } catch {
+      showToast('No se pudo copiar la lista al portapapeles', 'error');
+    }
   };
 
   const handleExportPDF = async () => {
@@ -78,7 +70,10 @@ export function ShoppingListScreen() {
         y += 6;
       }
       doc.save(`batchfit-compra-semana-${shoppingList.menuId}.pdf`);
-    } catch (e) { console.error('Error PDF:', e); }
+    } catch (e) {
+      console.error('Error PDF:', e);
+      showToast('No se pudo generar el PDF', 'error');
+    }
   };
 
   return (

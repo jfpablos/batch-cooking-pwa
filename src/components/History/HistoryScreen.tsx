@@ -5,6 +5,7 @@ import { storageService } from '../../services/storageService';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { formatDateTime } from '../../utils/dateUtils';
 import { AccountFooter } from '../Auth/AccountFooter';
+import { EmptyState } from '../Common/EmptyState';
 
 function MacroChip({ label, value, color }: { label: string; value: number; color: string }) {
   return (
@@ -20,7 +21,9 @@ function MacroChip({ label, value, color }: { label: string; value: number; colo
 }
 
 export function HistoryScreen() {
-  const { menuHistory, setMenuHistory, setActiveTab } = useAppStore();
+  const menuHistory = useAppStore(s => s.menuHistory);
+  const setMenuHistory = useAppStore(s => s.setMenuHistory);
+  const setActiveTab = useAppStore(s => s.setActiveTab);
   const { clearHistory } = useHistoryRotation();
 
   const handleClear = () => {
@@ -31,31 +34,19 @@ export function HistoryScreen() {
 
   if (menuHistory.length === 0) {
     return (
-      <div
-        className="h-full flex flex-col items-center justify-center p-8 text-center gap-5"
-        style={{ paddingTop: 'var(--safe-area-top)' }}
+      <EmptyState
+        icon="📊"
+        title="Sin historial"
+        subtitle="Los menús generados aparecerán aquí"
+        ctaLabel="Generar primer menú"
+        onCta={() => setActiveTab(0)}
+        ctaBackground="var(--ink)"
+        ctaColor="var(--cream)"
       >
-        <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--cream-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>
-          📊
-        </div>
-        <div>
-          <p className="display" style={{ fontSize: 22 }}>Sin historial</p>
-          <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 6 }}>Los menús generados aparecerán aquí</p>
-        </div>
-        <button
-          onClick={() => setActiveTab(0)}
-          style={{
-            minHeight: 48, padding: '0 24px', background: 'var(--ink)', color: 'var(--cream)',
-            border: 'none', borderRadius: 12, fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 15,
-            cursor: 'pointer',
-          }}
-        >
-          Generar primer menú
-        </button>
         <div style={{ width: '100%', maxWidth: 340 }}>
           <AccountFooter />
         </div>
-      </div>
+      </EmptyState>
     );
   }
 

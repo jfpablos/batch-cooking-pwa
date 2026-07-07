@@ -8,7 +8,7 @@ import { videoRecipeService } from '../services/videoRecipeService';
 import { STORAGE_KEYS } from '../utils/storageKeys';
 import { getCurrentWeekAndYear } from '../utils/dateUtils';
 import { useHistoryRotation } from './useHistoryRotation';
-import { buildFullSelection } from '../utils/prompts';
+import { buildFullSelection, getCurrentSeason } from '../utils/prompts';
 import { buildBasicConservationPlan } from '../utils/conservationFallback';
 import type { BatchCookingGuide, MealSelection, WeeklyMenu } from '../types';
 
@@ -39,16 +39,14 @@ function pickInspirationVideos(videos: { title: string; description?: string }[]
 }
 
 export function useMenuGeneration() {
-  const {
-    setGenerating,
-    setError,
-    setCurrentMenu,
-    setShoppingList,
-    setBatchGuide,
-    showToast,
-    setActiveTab,
-    resetTimer,
-  } = useAppStore();
+  const setGenerating = useAppStore(s => s.setGenerating);
+  const setError = useAppStore(s => s.setError);
+  const setCurrentMenu = useAppStore(s => s.setCurrentMenu);
+  const setShoppingList = useAppStore(s => s.setShoppingList);
+  const setBatchGuide = useAppStore(s => s.setBatchGuide);
+  const showToast = useAppStore(s => s.showToast);
+  const setActiveTab = useAppStore(s => s.setActiveTab);
+  const resetTimer = useAppStore(s => s.resetTimer);
 
   const { getExcludeNames, addMenuToHistory } = useHistoryRotation();
 
@@ -58,8 +56,13 @@ export function useMenuGeneration() {
 
     try {
       const { weekNumber, year } = getCurrentWeekAndYear();
-      const excludeNames = getExcludeNames();
-      const pantryNames = useAppStore.getState().pantryItems.map(p => p.name);
+      const { pantryItems, recipePrefs, profile } = useAppStore.getState();
+      // Anti-repetición (últimas 4 semanas) + recetas vetadas por el usuario
+      const excludeNames = Array.from(new Set([...getExcludeNames(), ...recipePrefs.banned]));
+      const pantryNames = pantryItems.map(p => p.name);
+      // Favoritas que no estén vetadas ni en cuarentena por repetición
+      const excludeSet = new Set(excludeNames.map(n => n.toLowerCase()));
+      const favoriteRecipes = recipePrefs.favorites.filter(f => !excludeSet.has(f.toLowerCase()));
 
       let weeklyMenu: WeeklyMenu;
 
@@ -83,7 +86,14 @@ export function useMenuGeneration() {
             weekNumber,
             year,
             selection,
-            { pantryItems: pantryNames, videoRecipes: videoRecipesSample, inspirationVideos }
+            {
+              pantryItems: pantryNames,
+              videoRecipes: videoRecipesSample,
+              inspirationVideos,
+              favoriteRecipes,
+              season: getCurrentSeason(),
+            },
+            profile
           );
 
           setGenerating(true, STEPS[1], 40);
