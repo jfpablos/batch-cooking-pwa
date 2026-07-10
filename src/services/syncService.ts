@@ -20,10 +20,17 @@ const LOCAL_ONLY_KEYS = new Set<string>([STORAGE_KEYS.YT_VIDEOS_CACHE]);
 
 // Clave cruda (fuera de STORAGE_KEYS): nunca se sincroniza a sí misma.
 const PENDING_KEY = 'batchfit:sync_pending';
+// clave → updated_at del servidor la última vez que esta sesión sincronizó esa
+// clave. Los conflictos se deciden comparando este valor con el updated_at
+// actual del servidor (¿cambió desde que lo vimos?): ambos son del reloj del
+// servidor, así que el desfase del reloj del dispositivo no puede perder datos.
+const BASELINE_KEY = 'batchfit:sync_baseline';
 const PUSH_DEBOUNCE_MS = 800;
 
 // La UI escucha este evento para rehidratar el store cuando la reconciliación
-// escribe en localStorage un valor más reciente del servidor.
+// escribe en localStorage un valor más reciente del servidor. Si hubo
+// conflicto real (otro dispositivo escribió mientras había cambios offline),
+// detail.conflictKeys lista las claves cuyo cambio local se descartó.
 export const REMOTE_UPDATE_EVENT = 'batchfit:remote-update';
 
 const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -74,6 +81,30 @@ function clearPending(key: string): void {
   }
 }
 
+// clave → epoch ms del updated_at del servidor visto en el último sync
+type BaselineMap = Record<string, number>;
+
+function getBaseline(): BaselineMap {
+  try {
+    const raw = localStorage.getItem(BASELINE_KEY);
+    return raw ? (JSON.parse(raw) as BaselineMap) : {};
+  } catch {
+    return {};
+  }
+}
+
+function setBaselineEntry(key: string, updatedAt: number | null): void {
+  try {
+    const baseline = getBaseline();
+    if (updatedAt === null) delete baseline[key];
+    else baseline[key] = updatedAt;
+    if (Object.keys(baseline).length === 0) localStorage.removeItem(BASELINE_KEY);
+    else localStorage.setItem(BASELINE_KEY, JSON.stringify(baseline));
+  } catch {
+    // sin espacio: se degradará al fallback por timestamp en la reconciliación
+  }
+}
+
 /** Sube (o borra) una clave en el servidor. Lee el valor actual de localStorage. */
 async function pushKey(key: string): Promise<void> {
   if (!supabase || !userId) return;
@@ -95,11 +126,16 @@ async function pushKey(key: string): Promise<void> {
     if (raw === null) {
       const { error } = await supabase.from('app_state').delete().eq('key', key);
       if (error) throw error;
+      setBaselineEntry(key, null);
     } else {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('app_state')
-        .upsert({ user_id: userId, key, value }, { onConflict: 'user_id,key' });
+        .upsert({ user_id: userId, key, value }, { onConflict: 'user_id,key' })
+        .select('updated_at')
+        .single();
       if (error) throw error;
+      const updatedAt = Date.parse(data?.updated_at as string);
+      if (Number.isFinite(updatedAt)) setBaselineEntry(key, updatedAt);
     }
     clearPending(key);
   } catch (e) {
@@ -109,9 +145,13 @@ async function pushKey(key: string): Promise<void> {
 }
 
 /**
- * Sube los cambios pendientes reconciliando con el servidor: si otra sesión
- * escribió la clave DESPUÉS del cambio local pendiente (updated_at más
- * reciente), gana el servidor — se trae su valor en vez de machacarlo.
+ * Sube los cambios pendientes reconciliando con el servidor por causalidad:
+ * si el updated_at actual del servidor coincide con la línea base (lo último
+ * que esta sesión sincronizó), nadie más escribió y el cambio offline se sube
+ * con seguridad. Si difiere, otro dispositivo escribió entre medias: gana el
+ * servidor y se notifica el conflicto en vez de machacarlo en silencio.
+ * Fallback para claves sin línea base (versiones anteriores): comparación
+ * updated_at vs timestamp local, como antes.
  */
 async function pushPendingReconciled(): Promise<void> {
   if (!supabase || !userId) return;
@@ -134,24 +174,32 @@ async function pushPendingReconciled(): Promise<void> {
     // sin info del servidor: se empuja igualmente (comportamiento anterior)
   }
 
-  let pulledAny = false;
+  const baseline = getBaseline();
+  const conflictKeys: string[] = [];
   for (const key of keys) {
     const server = serverRows.get(key);
-    if (server && Number.isFinite(server.updatedAt) && server.updatedAt > pending[key]) {
+    const base = baseline[key];
+    const serverChangedSinceLastSync =
+      server && Number.isFinite(server.updatedAt) &&
+      (Number.isFinite(base) ? server.updatedAt !== base : server.updatedAt > pending[key]);
+
+    if (serverChangedSinceLastSync) {
       try {
         localStorage.setItem(key, JSON.stringify(server.value));
-        pulledAny = true;
+        conflictKeys.push(key);
       } catch (e) {
         console.error(`[Sync] No se pudo escribir ${key} en localStorage:`, e);
       }
+      setBaselineEntry(key, server.updatedAt);
       clearPending(key);
       continue;
     }
     await pushKey(key);
   }
 
-  if (pulledAny && typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(REMOTE_UPDATE_EVENT));
+  if (conflictKeys.length > 0 && typeof window !== 'undefined') {
+    console.warn('[Sync] Conflicto: otro dispositivo escribió estas claves, gana el servidor:', conflictKeys);
+    window.dispatchEvent(new CustomEvent(REMOTE_UPDATE_EVENT, { detail: { conflictKeys } }));
   }
 }
 
@@ -172,7 +220,7 @@ export const syncService = {
 
     await pushPendingReconciled();
 
-    const { data, error } = await supabase.from('app_state').select('key, value');
+    const { data, error } = await supabase.from('app_state').select('key, value, updated_at');
     if (error) {
       console.error('[Sync] Error descargando estado:', error);
       return; // la app sigue con lo local; se reintentará en el próximo arranque
@@ -197,6 +245,8 @@ export const syncService = {
         } catch (e) {
           console.error(`[Sync] No se pudo escribir ${row.key} en localStorage:`, e);
         }
+        const updatedAt = Date.parse(row.updated_at as string);
+        if (Number.isFinite(updatedAt)) setBaselineEntry(row.key as string, updatedAt);
       }
     }
     // Claves locales que el servidor no tiene (creadas sin conexión): subirlas

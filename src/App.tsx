@@ -29,7 +29,16 @@ export default function App() {
     const onStorageError = () =>
       useAppStore.getState().showToast('No se pudo guardar: espacio de almacenamiento lleno', 'error');
     // La reconciliación del sync trajo valores más recientes del servidor
-    const onRemoteUpdate = () => useAppStore.getState().hydrateFromStorage();
+    const onRemoteUpdate = (e: Event) => {
+      useAppStore.getState().hydrateFromStorage();
+      const conflictKeys = (e as CustomEvent<{ conflictKeys?: string[] }>).detail?.conflictKeys;
+      if (conflictKeys?.length) {
+        useAppStore.getState().showToast(
+          'Otro dispositivo modificó tus datos mientras estabas sin conexión: se ha conservado su versión',
+          'info'
+        );
+      }
+    };
     window.addEventListener(STORAGE_ERROR_EVENT, onStorageError);
     window.addEventListener(REMOTE_UPDATE_EVENT, onRemoteUpdate);
     return () => {
