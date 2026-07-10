@@ -249,6 +249,13 @@ export class GeminiService {
           i => typeof i.amount !== 'number' || !Number.isFinite(i.amount) || !i.name
         );
         if (badAmount) throw new Error('Receta de sustitución con ingredientes inválidos');
+        // Mismo chequeo que validateMenuResponse: una caloría como string
+        // ("935") acabaría concatenada o como NaN en los totales del día.
+        const nutrition = parsed.nutrition as unknown as Record<string, unknown>;
+        const badNutrition = (['calories', 'protein', 'carbs', 'fat'] as const).some(
+          f => typeof nutrition[f] !== 'number' || !Number.isFinite(nutrition[f] as number)
+        );
+        if (badNutrition) throw new Error('Receta de sustitución con nutrición no numérica');
         return parsed;
       } catch (error) {
         lastError = error as Error;

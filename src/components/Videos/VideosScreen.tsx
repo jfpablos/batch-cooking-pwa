@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { youtubeService } from '../../services/youtubeService';
 import { geminiService } from '../../services/geminiService';
 import { videoRecipeService } from '../../services/videoRecipeService';
+import { REMOTE_UPDATE_EVENT } from '../../services/syncService';
 import { normalizeText } from '../../utils/textUtils';
 import type { AnalyzeProgress } from '../../services/videoRecipeService';
 import type { YouTubeVideo } from '../../types';
@@ -27,6 +28,16 @@ export function VideosScreen() {
 
   const isConfigured = youtubeService.isConfigured();
 
+  // El catálogo de recetas por vídeo vive en localStorage (fuera de React):
+  // este contador invalida los memos cuando la sincronización trae un
+  // catálogo nuevo de otro dispositivo.
+  const [catalogVersion, setCatalogVersion] = useState(0);
+  useEffect(() => {
+    const bump = () => setCatalogVersion(v => v + 1);
+    window.addEventListener(REMOTE_UPDATE_EVENT, bump);
+    return () => window.removeEventListener(REMOTE_UPDATE_EVENT, bump);
+  }, []);
+
   // Registro de recetas por vídeo (la IA analiza el contenido de cada vídeo).
   // `analyzing` invalida el memo cuando termina un análisis.
   const recipesByVideo = useMemo(() => {
@@ -37,12 +48,12 @@ export function VideosScreen() {
       map.set(entry.videoId, list);
     }
     return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `analyzing` invalida la caché externa al terminar cada análisis
-  }, [analyzing]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `analyzing`/`catalogVersion` invalidan la caché externa
+  }, [analyzing, catalogVersion]);
   const pendingVideos = useMemo(
     () => videoRecipeService.getPendingVideos(youtubeVideos),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ídem
-    [youtubeVideos, analyzing]
+    [youtubeVideos, analyzing, catalogVersion]
   );
   const canAnalyze = geminiService.isConfigured() && pendingVideos.length > 0;
 

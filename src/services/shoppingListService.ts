@@ -93,7 +93,9 @@ const CATEGORY_MAP: Record<string, ShoppingCategoryName> = {
   // Lácteos
   'leche semidesnatada': 'Lácteos y Huevos',
   'leche': 'Lácteos y Huevos',
+  'yogur': 'Lácteos y Huevos',
   'yogur griego': 'Lácteos y Huevos',
+  'queso': 'Lácteos y Huevos',
   'queso fresco': 'Lácteos y Huevos',
   'queso fresco batido': 'Lácteos y Huevos',
   'queso fresco light': 'Lácteos y Huevos',
@@ -288,10 +290,11 @@ export const shoppingListService = {
 
   /**
    * Marca como "ya en casa" los items de la lista que coinciden con
-   * ingredientes de la despensa. Match por palabras completas: todas las
-   * palabras de la entrada de despensa (la más genérica) deben aparecer en el
-   * nombre del ítem — "arroz" marca "arroz integral", pero "leche entera" ya
-   * no marca "leche de coco".
+   * ingredientes de la despensa. Match por palabras completas en cualquier
+   * dirección: "arroz" en despensa marca "arroz integral" en la lista, y
+   * "pechuga de pollo" en despensa marca "pollo" en la lista. "leche entera"
+   * sigue sin marcar "leche de coco" (ninguna contiene todas las palabras de
+   * la otra).
    */
   markPantryItems(list: ShoppingList, pantryNames: string[]): ShoppingList {
     if (pantryNames.length === 0) return list;
@@ -299,11 +302,14 @@ export const shoppingListService = {
 
     const matches = (itemName: string): boolean => {
       const item = normalizeText(itemName);
-      const itemWords = new Set(item.split(' ').filter(w => w.length >= 3));
+      const itemWords = item.split(' ').filter(w => w.length >= 3);
+      const itemSet = new Set(itemWords);
       return normalizedPantry.some(pantry => {
         if (item === pantry) return true;
         const pantryWords = pantry.split(' ').filter(w => w.length >= 3);
-        return pantryWords.length > 0 && pantryWords.every(pw => itemWords.has(pw));
+        if (pantryWords.length === 0 || itemWords.length === 0) return false;
+        const pantrySet = new Set(pantryWords);
+        return pantryWords.every(pw => itemSet.has(pw)) || itemWords.every(iw => pantrySet.has(iw));
       });
     };
 

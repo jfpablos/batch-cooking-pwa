@@ -243,7 +243,13 @@ export function MenuDisplayScreen() {
                   if (recipe) setSelectedRecipe(recipe);
                 }}
                 onKeyDown={e => {
-                  if ((e.key === 'Enter' || e.key === ' ') && recipe) setSelectedRecipe(recipe);
+                  // Solo la tarjeta en sí: el keydown de los botones internos
+                  // (hecho/cambiar) burbujea hasta aquí y no debe abrir la ficha
+                  if (e.target !== e.currentTarget) return;
+                  if ((e.key === 'Enter' || e.key === ' ') && recipe) {
+                    e.preventDefault();
+                    setSelectedRecipe(recipe);
+                  }
                 }}
                 style={{
                   cursor: 'pointer',
@@ -298,21 +304,28 @@ export function MenuDisplayScreen() {
                       </span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                    {/* Área táctil de 44px (CLAUDE.md) con el círculo visual de 30px dentro */}
                     <button
                       aria-label={isDone ? 'Desmarcar comida hecha' : 'Marcar comida como hecha'}
                       aria-pressed={isDone}
                       onClick={e => { e.stopPropagation(); toggleMealDone(currentMenu.id, day.day, mealKey); }}
                       style={{
                         all: 'unset' as const, cursor: 'pointer',
+                        width: 44, height: 44,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxSizing: 'border-box' as const,
+                      }}
+                    >
+                      <span style={{
                         width: 30, height: 30, borderRadius: 999,
                         background: isDone ? '#5A9A2E' : 'var(--cream-2)',
                         border: '1px solid ' + (isDone ? '#5A9A2E' : 'var(--line)'),
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         boxSizing: 'border-box' as const,
-                      }}
-                    >
-                      <Check size={14} strokeWidth={2.6} style={{ color: isDone ? '#fff' : 'var(--muted-2)' }} />
+                      }}>
+                        <Check size={14} strokeWidth={2.6} style={{ color: isDone ? '#fff' : 'var(--muted-2)' }} />
+                      </span>
                     </button>
                     <button
                       aria-label="Cambiar esta comida por otra receta"
@@ -320,21 +333,27 @@ export function MenuDisplayScreen() {
                       onClick={e => { e.stopPropagation(); void swapMeal(day.day, mealKey); }}
                       style={{
                         all: 'unset' as const, cursor: swapping ? 'wait' : 'pointer',
-                        width: 30, height: 30, borderRadius: 999,
-                        background: 'var(--cream-2)', border: '1px solid var(--line)',
+                        width: 44, height: 44,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         boxSizing: 'border-box' as const,
                         opacity: swapping && !isSwapping ? 0.4 : 1,
                       }}
                     >
-                      <RefreshCw
-                        size={13}
-                        strokeWidth={2.2}
-                        style={{
-                          color: 'var(--muted)',
-                          animation: isSwapping ? 'spin 0.8s linear infinite' : undefined,
-                        }}
-                      />
+                      <span style={{
+                        width: 30, height: 30, borderRadius: 999,
+                        background: 'var(--cream-2)', border: '1px solid var(--line)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxSizing: 'border-box' as const,
+                      }}>
+                        <RefreshCw
+                          size={13}
+                          strokeWidth={2.2}
+                          style={{
+                            color: 'var(--muted)',
+                            animation: isSwapping ? 'spin 0.8s linear infinite' : undefined,
+                          }}
+                        />
+                      </span>
                     </button>
                     <ArrowRight size={14} style={{ color: 'var(--muted-2)' }} />
                   </div>

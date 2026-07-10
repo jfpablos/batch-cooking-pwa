@@ -109,20 +109,28 @@ export function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDetailModal
                 </div>
                 <div className="display-tight" style={{ fontSize: 24, marginTop: 6, lineHeight: 1.15 }}>{recipe.name}</div>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              {/* Área táctil de 44px (CLAUDE.md) con el círculo visual de 36px dentro */}
+              <div style={{ display: 'flex', flexShrink: 0 }}>
                 <button
                   onClick={() => toggleFavorite(recipe.name)}
                   aria-label={isFavorite ? 'Quitar de favoritas' : 'Marcar como favorita'}
                   aria-pressed={isFavorite}
                   title="Favorita: la IA podrá repetirla o inspirarse en ella"
                   style={{
+                    all: 'unset' as const, width: 44, height: 44,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                    boxSizing: 'border-box' as const,
+                  }}
+                >
+                  <span style={{
                     width: 36, height: 36, borderRadius: 999,
                     background: isFavorite ? 'rgba(239,68,68,0.1)' : 'var(--card)',
                     border: '1px solid ' + (isFavorite ? 'rgba(239,68,68,0.4)' : 'var(--line)'),
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                  }}
-                >
-                  <Heart size={16} style={{ color: isFavorite ? '#EF4444' : 'var(--muted)' }} fill={isFavorite ? '#EF4444' : 'none'} />
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxSizing: 'border-box' as const,
+                  }}>
+                    <Heart size={16} style={{ color: isFavorite ? '#EF4444' : 'var(--muted)' }} fill={isFavorite ? '#EF4444' : 'none'} />
+                  </span>
                 </button>
                 <button
                   onClick={() => toggleBanned(recipe.name)}
@@ -130,23 +138,37 @@ export function RecipeDetailModal({ recipe, isOpen, onClose }: RecipeDetailModal
                   aria-pressed={isBanned}
                   title="Vetada: no volverá a aparecer en menús generados"
                   style={{
+                    all: 'unset' as const, width: 44, height: 44,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                    boxSizing: 'border-box' as const,
+                  }}
+                >
+                  <span style={{
                     width: 36, height: 36, borderRadius: 999,
                     background: isBanned ? 'rgba(15,12,8,0.85)' : 'var(--card)',
                     border: '1px solid ' + (isBanned ? 'var(--ink)' : 'var(--line)'),
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                  }}
-                >
-                  <Ban size={16} style={{ color: isBanned ? '#fff' : 'var(--muted)' }} />
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxSizing: 'border-box' as const,
+                  }}>
+                    <Ban size={16} style={{ color: isBanned ? '#fff' : 'var(--muted)' }} />
+                  </span>
                 </button>
                 <button
                   onClick={onClose}
                   aria-label="Cerrar"
                   style={{
-                    width: 36, height: 36, borderRadius: 999, background: 'var(--card)', border: '1px solid var(--line)',
+                    all: 'unset' as const, width: 44, height: 44,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                    boxSizing: 'border-box' as const,
                   }}
                 >
-                  <X size={16} style={{ color: 'var(--ink)' }} />
+                  <span style={{
+                    width: 36, height: 36, borderRadius: 999, background: 'var(--card)', border: '1px solid var(--line)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxSizing: 'border-box' as const,
+                  }}>
+                    <X size={16} style={{ color: 'var(--ink)' }} />
+                  </span>
                 </button>
               </div>
             </div>

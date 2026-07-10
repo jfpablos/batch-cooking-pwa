@@ -295,19 +295,24 @@ export const menuService = {
   replaceMeal(menu: WeeklyMenu, dayName: DayName, mealKey: MealKey, recipe: BaseRecipe): WeeklyMenu {
     const oldName = menu.days.find(d => d.day === dayName)?.meals[mealKey]?.recipeName;
 
+    // Si el menú ya tiene esta receta (aunque el nombre difiera en acentos o
+    // mayúsculas), se reutiliza la existente: dos fichas con el mismo nombre
+    // normalizado colisionarían en la lista de la compra, que agrega por
+    // normalizeText.
+    const existing = menu.recipes.find(r => normalizeText(r.name) === normalizeText(recipe.name));
+    const finalRecipe = existing ?? recipe;
+
     const days: DayMenu[] = menu.days.map(d => {
       if (d.day !== dayName) return d;
       const meals = {
         ...d.meals,
-        [mealKey]: { recipeId: recipe.id, recipeName: recipe.name, nutrition: recipe.nutrition },
+        [mealKey]: { recipeId: finalRecipe.id, recipeName: finalRecipe.name, nutrition: finalRecipe.nutrition },
       };
       const totalNutrition = sumNutrition(MEAL_KEYS.map(k => meals[k].nutrition));
       return { ...d, meals, totalNutrition };
     });
 
-    let recipes = menu.recipes.some(r => r.name === recipe.name)
-      ? menu.recipes
-      : [...menu.recipes, recipe];
+    let recipes = existing ? menu.recipes : [...menu.recipes, recipe];
     if (oldName && menu.source === 'gemini') {
       const stillUsed = days.some(d =>
         MEAL_KEYS.some(k => !d.meals[k].isSkipped && d.meals[k].recipeName === oldName)
