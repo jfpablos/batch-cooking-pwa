@@ -9,6 +9,7 @@ import { STORAGE_KEYS } from '../utils/storageKeys';
 import { useHistoryRotation } from './useHistoryRotation';
 import { MEAL_CATEGORY, scaledMealTargets } from '../utils/constants';
 import { getCurrentSeason } from '../utils/prompts';
+import { normalizeText } from '../utils/textUtils';
 import type { BaseRecipe, DayName, MealKey } from '../types';
 
 export interface SwapTarget {
@@ -26,8 +27,10 @@ export function useMealSwap() {
   const { getExcludeNames } = useHistoryRotation();
 
   async function swapMeal(day: DayName, meal: MealKey): Promise<void> {
-    const { currentMenu, profile, pantryItems, showToast, setCurrentMenu, setShoppingList } =
-      useAppStore.getState();
+    const {
+      currentMenu, profile, pantryItems, recipePrefs, shoppingList, batchGuide,
+      showToast, setCurrentMenu, setShoppingList, setBatchGuide,
+    } = useAppStore.getState();
     if (!currentMenu || swapping) return;
 
     const currentMeal = currentMenu.days.find(d => d.day === day)?.meals[meal];
@@ -38,7 +41,11 @@ export function useMealSwap() {
       const category = MEAL_CATEGORY[meal];
       const targets = scaledMealTargets(profile)[meal];
       const usedNames = menuService.getAllRecipeNames(currentMenu);
-      const excludeNames = Array.from(new Set([...getExcludeNames(), ...usedNames]));
+      // Mismas exclusiones que la generación semanal: historial + vetadas,
+      // más lo ya presente en el menú actual.
+      const excludeNames = Array.from(
+        new Set([...getExcludeNames(), ...recipePrefs.banned, ...usedNames])
+      );
 
       let recipe: BaseRecipe | null = null;
 
@@ -59,12 +66,16 @@ export function useMealSwap() {
       }
 
       if (!recipe) {
-        const excluded = new Set(excludeNames.map(n => n.toLowerCase()));
+        const excluded = new Set(excludeNames.map(normalizeText));
         const candidates = recipeService
           .getByCategory(category)
-          .filter(r => !excluded.has(r.name.toLowerCase()));
+          .filter(r => !excluded.has(normalizeText(r.name)));
+        const banned = new Set(recipePrefs.banned.map(normalizeText));
         const pool = candidates.length > 0 ? candidates : recipeService.getByCategory(category)
-          .filter(r => r.name !== currentMeal.recipeName);
+          .filter(r =>
+            normalizeText(r.name) !== normalizeText(currentMeal.recipeName) &&
+            !banned.has(normalizeText(r.name))
+          );
         if (pool.length === 0) {
           showToast('No hay recetas alternativas disponibles para esta comida', 'error');
           return;
@@ -74,12 +85,21 @@ export function useMealSwap() {
 
       const updatedMenu = menuService.replaceMeal(currentMenu, day, meal, recipe);
       const rawList = shoppingListService.generateFromMenu(updatedMenu);
-      const updatedList = shoppingListService.markPantryItems(rawList, pantryItems.map(p => p.name));
+      const pantryList = shoppingListService.markPantryItems(rawList, pantryItems.map(p => p.name));
+      // No perder lo ya marcado como comprado en los ítems que no cambian
+      const updatedList = shoppingListService.mergePurchasedState(pantryList, shoppingList);
 
       storageService.set(STORAGE_KEYS.CURRENT_MENU, updatedMenu);
       storageService.set(STORAGE_KEYS.SHOPPING_LIST, updatedList);
       setCurrentMenu(updatedMenu);
       setShoppingList(updatedList);
+
+      // La guía de batch guardada describe la receta sustituida: se invalida
+      // para que la pestaña Batch use la guía base derivada del menú nuevo.
+      if (batchGuide && batchGuide.menuId === currentMenu.id) {
+        storageService.remove(STORAGE_KEYS.BATCH_GUIDE);
+        setBatchGuide(null);
+      }
 
       showToast(`Cambiado por "${recipe.name}"`, 'success');
     } finally {

@@ -257,6 +257,36 @@ export const shoppingListService = {
   },
 
   /**
+   * Traslada el estado "comprado" de una lista anterior a una recién
+   * generada (p. ej. al cambiar una sola comida): un ítem sigue comprado si
+   * conserva nombre, unidad y cantidad; si la cantidad cambió, se desmarca
+   * para que el usuario revise si necesita comprar más.
+   */
+  mergePurchasedState(newList: ShoppingList, previous: ShoppingList | null): ShoppingList {
+    if (!previous) return newList;
+    const purchasedAmounts = new Map<string, number>();
+    for (const cat of previous.categories) {
+      for (const item of cat.items) {
+        if (item.purchased) {
+          purchasedAmounts.set(`${normalizeText(item.name)}_${item.unit}`, item.totalAmount);
+        }
+      }
+    }
+    if (purchasedAmounts.size === 0) return newList;
+    return {
+      ...newList,
+      categories: newList.categories.map(cat => ({
+        ...cat,
+        items: cat.items.map(item =>
+          purchasedAmounts.get(`${normalizeText(item.name)}_${item.unit}`) === item.totalAmount
+            ? { ...item, purchased: true }
+            : item
+        ),
+      })),
+    };
+  },
+
+  /**
    * Marca como "ya en casa" los items de la lista que coinciden con
    * ingredientes de la despensa. Match por palabras completas: todas las
    * palabras de la entrada de despensa (la más genérica) deben aparecer en el

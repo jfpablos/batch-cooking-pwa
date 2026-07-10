@@ -40,17 +40,17 @@ Deno.serve(async (req) => {
   }
 
   // Techo de maxOutputTokens: acota el coste por invocación aunque el cliente
-  // (autorizado) pida más.
+  // (autorizado) pida más u omita generationConfig por completo.
   const MAX_OUTPUT_TOKENS = 32768;
-  const generationConfig = (body as Record<string, unknown>).generationConfig as
-    | Record<string, unknown>
-    | undefined;
-  if (generationConfig) {
-    const requested = Number(generationConfig.maxOutputTokens);
-    generationConfig.maxOutputTokens = Number.isFinite(requested)
-      ? Math.min(requested, MAX_OUTPUT_TOKENS)
-      : MAX_OUTPUT_TOKENS;
-  }
+  const bodyRecord = body as Record<string, unknown>;
+  const rawConfig = bodyRecord.generationConfig;
+  const generationConfig: Record<string, unknown> =
+    rawConfig && typeof rawConfig === 'object' ? (rawConfig as Record<string, unknown>) : {};
+  const requested = Number(generationConfig.maxOutputTokens);
+  generationConfig.maxOutputTokens = Number.isFinite(requested) && requested > 0
+    ? Math.min(requested, MAX_OUTPUT_TOKENS)
+    : MAX_OUTPUT_TOKENS;
+  bodyRecord.generationConfig = generationConfig;
 
   const upstream = await fetch(
     `${GEMINI_BASE}/${model}:generateContent?key=${apiKey}`,

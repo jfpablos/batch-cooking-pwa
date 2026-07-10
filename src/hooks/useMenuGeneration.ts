@@ -10,6 +10,7 @@ import { getCurrentWeekAndYear } from '../utils/dateUtils';
 import { useHistoryRotation } from './useHistoryRotation';
 import { buildFullSelection, getCurrentSeason } from '../utils/prompts';
 import { buildBasicConservationPlan } from '../utils/conservationFallback';
+import { normalizeText } from '../utils/textUtils';
 import type { BatchCookingGuide, MealSelection, WeeklyMenu } from '../types';
 
 const STEPS = [
@@ -61,8 +62,8 @@ export function useMenuGeneration() {
       const excludeNames = Array.from(new Set([...getExcludeNames(), ...recipePrefs.banned]));
       const pantryNames = pantryItems.map(p => p.name);
       // Favoritas que no estén vetadas ni en cuarentena por repetición
-      const excludeSet = new Set(excludeNames.map(n => n.toLowerCase()));
-      const favoriteRecipes = recipePrefs.favorites.filter(f => !excludeSet.has(f.toLowerCase()));
+      const excludeSet = new Set(excludeNames.map(normalizeText));
+      const favoriteRecipes = recipePrefs.favorites.filter(f => !excludeSet.has(normalizeText(f)));
 
       let weeklyMenu: WeeklyMenu;
 

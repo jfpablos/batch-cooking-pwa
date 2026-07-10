@@ -17,24 +17,35 @@ const FIELDS: { key: keyof UserProfile; label: string; unit: string; step: numbe
  * mostrados en toda la app. Se sincroniza entre dispositivos como el resto
  * del estado.
  */
+// Mientras se edita, un campo puede estar vacío ('' en vez de número): si se
+// convirtiera a 0 al instante, borrar para reescribir guardaría el mínimo.
+type ProfileDraft = { [K in keyof UserProfile]: UserProfile[K] | '' };
+
 export function ProfileSection() {
   const profile = useAppStore(s => s.profile);
   const setProfile = useAppStore(s => s.setProfile);
   const showToast = useAppStore(s => s.showToast);
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<UserProfile>(profile);
+  const [draft, setDraft] = useState<ProfileDraft>(profile);
 
+  const isComplete = FIELDS.every(f => typeof draft[f.key] === 'number');
   const isDirty = FIELDS.some(f => draft[f.key] !== profile[f.key]);
+  const canSave = isDirty && isComplete;
 
   const updateField = (key: keyof UserProfile, raw: string) => {
+    if (raw.trim() === '') {
+      setDraft(d => ({ ...d, [key]: '' }));
+      return;
+    }
     const value = Number(raw.replace(',', '.'));
     setDraft(d => ({ ...d, [key]: Number.isFinite(value) ? value : d[key] }));
   };
 
   const handleSave = () => {
-    const clamped = { ...draft };
+    if (!isComplete) return;
+    const clamped = { ...profile };
     for (const f of FIELDS) {
-      clamped[f.key] = Math.min(f.max, Math.max(f.min, clamped[f.key]));
+      clamped[f.key] = Math.min(f.max, Math.max(f.min, draft[f.key] as number));
     }
     setDraft(clamped);
     setProfile(clamped);
@@ -133,14 +144,14 @@ export function ProfileSection() {
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button
               onClick={handleSave}
-              disabled={!isDirty}
+              disabled={!canSave}
               style={{
                 flex: 1, minHeight: 44,
-                background: isDirty ? 'var(--ink)' : 'var(--cream-2)',
-                color: isDirty ? 'var(--cream)' : 'var(--muted-2)',
+                background: canSave ? 'var(--ink)' : 'var(--cream-2)',
+                color: canSave ? 'var(--cream)' : 'var(--muted-2)',
                 border: 'none', borderRadius: 11,
                 fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 13.5,
-                cursor: isDirty ? 'pointer' : 'not-allowed',
+                cursor: canSave ? 'pointer' : 'not-allowed',
               }}
             >
               Guardar perfil

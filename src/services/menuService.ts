@@ -11,6 +11,7 @@ import type {
   MealKey,
   MealSelection,
   RecipeScheduleEntry,
+  StorageInfo,
 } from '../types';
 import { recipeService } from './recipeService';
 import { buildFullSelection } from '../utils/prompts';
@@ -53,6 +54,18 @@ function avgNutrition(days: DayMenu[]): WeeklyNutritionSummary {
   };
 }
 
+// La vida útil declarada por la IA decide el consejo nevera/congelador, así
+// que no se acepta sin acotar: 1–4 días de nevera como máximo (seguridad
+// alimentaria). Las recetas base curadas no pasan por aquí.
+function sanitizeStorage(storage: StorageInfo | undefined): StorageInfo {
+  const days = Number(storage?.days);
+  return {
+    days: Number.isFinite(days) ? Math.min(4, Math.max(1, Math.round(days))) : 3,
+    freezable: storage?.freezable === true,
+    instructions: storage?.instructions ?? '',
+  };
+}
+
 function geminiRecipeToBase(gr: GeneratedMenuResponse['recipes'][0]): BaseRecipe {
   return {
     id: `gemini-${gr.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now()}`,
@@ -65,7 +78,7 @@ function geminiRecipeToBase(gr: GeneratedMenuResponse['recipes'][0]): BaseRecipe
     ingredients: gr.ingredients,
     steps: gr.steps,
     nutrition: gr.nutrition,
-    storage: gr.storage,
+    storage: sanitizeStorage(gr.storage),
     tags: gr.tags ?? [],
     batchMultiplier: 5,
     batchNotes: gr.batchNotes,
