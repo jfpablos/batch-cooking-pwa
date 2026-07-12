@@ -4,10 +4,11 @@
 -- la función solo envía cuando son las 21:00 en Europe/Madrid, así el cambio
 -- CET/CEST se maneja solo.
 --
--- REQUISITO PREVIO (una vez, antes de aplicar esta migración) — crear en Vault
--- la URL del proyecto y la service_role key que usan los jobs:
+-- NOTA: los jobs de cron definidos aquí (auth Bearer service_role desde
+-- Vault) fueron SUSTITUIDOS por 20260712150000_cron_secret_auth.sql, que
+-- reprograma ambos con la cabecera x-cron-secret y elimina la necesidad de
+-- guardar la service_role key. Requisito previo en Vault (una vez):
 --   select vault.create_secret('https://<proyecto>.supabase.co', 'project_url');
---   select vault.create_secret('<service_role_key>', 'service_role_key');
 -- Ver SETUP-SUPABASE.md.
 
 create table public.push_subscriptions (

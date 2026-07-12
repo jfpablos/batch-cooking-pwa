@@ -92,34 +92,40 @@ npx supabase secrets set VAPID_CONTACT=mailto:jfpablos@gmail.com
 npx supabase functions deploy send-reminders
 ```
 
-**3. Secretos de Vault para el cron** (SQL Editor, ANTES de aplicar la
-migración `20260712120000_push_reminders.sql`):
+**3. Secreto de Vault con la URL del proyecto** (SQL Editor, ANTES de aplicar
+las migraciones):
 
 ```sql
 select vault.create_secret('https://TU-PROYECTO.supabase.co', 'project_url');
-select vault.create_secret('TU_SERVICE_ROLE_KEY', 'service_role_key');
 ```
 
-(La service_role key está en **Settings → API Keys**. Nunca sale de la base de
-datos: los jobs de pg_cron la usan para autenticarse contra la función.)
-
-**4. Aplicar la migración** (`npx supabase db push` o pegando
-`supabase/migrations/20260712120000_push_reminders.sql` en el SQL Editor).
-Crea la tabla `push_subscriptions` y dos jobs de cron (19:00 y 20:00 UTC; la
-función solo envía cuando en Madrid son las 21:00, así el cambio de hora se
-gestiona solo).
+**4. Aplicar las migraciones** (`npx supabase db push`). Crean la tabla
+`push_subscriptions` y dos jobs de cron (19:00 y 20:00 UTC; la función solo
+envía cuando en Madrid son las 21:00, así el cambio de hora se gestiona solo).
+La autenticación del cron no necesita ninguna clave tuya: la migración genera
+un secreto aleatorio `cron_secret` dentro de Postgres (Vault) que los jobs
+envían en la cabecera `x-cron-secret` y la función verifica vía la RPC
+`get_cron_secret()`.
 
 **5. Clave pública en el cliente**: añade `VITE_VAPID_PUBLIC_KEY` (la del paso
 1) a `.env.local` y como secret de GitHub Actions. Después, en la app
 (pestaña Batch → tarjeta "Hoy") activa el interruptor "Recordatorio de
 descongelar".
 
-**Prueba end-to-end** (con la app instalada y el toggle activado):
+**Prueba end-to-end** (con el toggle activado en el móvil) — en el SQL Editor:
 
-```bash
-curl -X POST https://TU-PROYECTO.supabase.co/functions/v1/send-reminders \
-  -H "Authorization: Bearer TU_SERVICE_ROLE_KEY" \
-  -H "Content-Type: application/json" -d '{"force":true}'
+```sql
+select net.http_post(
+  url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url')
+         || '/functions/v1/send-reminders',
+  headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
+  ),
+  body := '{"force":true}'::jsonb
+);
+-- y unos segundos después, la respuesta:
+select status_code, content::text from net._http_response order by id desc limit 1;
 ```
 
 Debe responder `{"sent":1,...}` y llegar la notificación al móvil (si hoy hay

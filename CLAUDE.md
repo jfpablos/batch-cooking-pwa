@@ -58,7 +58,7 @@ If Gemini is not configured or fails, `menuService.createWeeklyMenuFromBase()` g
 | `supabase/functions/_shared/dailyActions.ts` | **Self-contained** (zero imports) daily-actions engine shared by client and server: derives thaw/freeze/eat actions per day from the menu + conservation plan; real week dates come from `generatedAt` (weekend → next Monday). Client re-exports it via `src/utils/dailyActions.ts` |
 | `src/components/DailyActions/` | `TodayPanel` ("Hoy" card at the top of the Batch tab: today's thaw/freeze checklist, `batchfit:daily_actions_done`) + `PushToggle` (Web Push opt-in) |
 | `src/services/pushService.ts` | Web Push subscription client (VAPID via `VITE_VAPID_PUBLIC_KEY`, rows in `push_subscriptions`); SW handlers in `public/push-sw.js` injected through `workbox.importScripts` |
-| `supabase/functions/send-reminders/` | Nightly push sender: invoked by two pg_cron jobs (19:00/20:00 UTC), only sends when it's 21:00 in Madrid; service-role only; prunes dead subscriptions (404/410) |
+| `supabase/functions/send-reminders/` | Nightly push sender: invoked by two pg_cron jobs (19:00/20:00 UTC), only sends when it's 21:00 in Madrid; auth via `x-cron-secret` header (random secret minted inside Postgres/Vault, fetched through the `get_cron_secret()` RPC; `verify_jwt=false`); prunes dead subscriptions (404/410) |
 | `src/store/useAppStore.ts` | Zustand store initialized from localStorage on startup |
 
 ### Environment variables (`.env.local`)

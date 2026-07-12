@@ -1,10 +1,16 @@
 // Envío nocturno de recordatorios de descongelación por Web Push.
 //
-// La invocan dos jobs de pg_cron (19:00 y 20:00 UTC) con la service_role key;
-// solo envía cuando son las 21:00 en Europe/Madrid (así el DST se maneja solo).
-// Para cada usuario con suscripciones push, lee su menú/guía de app_state,
-// deriva las acciones de "esta noche" con la MISMA lógica que el cliente
-// (_shared/dailyActions.ts) y notifica las que sigan pendientes.
+// La invocan dos jobs de pg_cron (19:00 y 20:00 UTC) autenticados con la
+// cabecera x-cron-secret: un secreto aleatorio que la migración genera DENTRO
+// de Postgres y guarda en Vault ('cron_secret'), de modo que nunca sale de la
+// base de datos. La función lo obtiene vía RPC get_cron_secret() (SECURITY
+// DEFINER, ejecutable solo por service_role) y lo compara. Por eso esta
+// función se despliega con verify_jwt = false (auth propia, ver config.toml).
+//
+// Solo envía cuando son las 21:00 en Europe/Madrid (así el DST se maneja
+// solo). Para cada usuario con suscripciones push, lee su menú/guía de
+// app_state, deriva las acciones de "esta noche" con la MISMA lógica que el
+// cliente (_shared/dailyActions.ts) y notifica las que sigan pendientes.
 //
 // Secrets necesarios: VAPID_KEYS (JWK exportado por @negrel/webpush) y
 // VAPID_CONTACT (mailto:). Ver SETUP-SUPABASE.md.
@@ -36,11 +42,15 @@ interface SubscriptionRow {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  // Solo el cron (service_role) puede invocarla: el gateway (verify_jwt=true)
-  // deja pasar cualquier JWT del proyecto, incluidos los de usuario.
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  if (req.headers.get('Authorization') !== `Bearer ${serviceKey}`) {
-    return json({ error: 'Solo invocable por el servicio' }, 403);
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey);
+
+  // Auth propia (verify_jwt=false): la cabecera debe coincidir con el secreto
+  // generado por la migración y guardado en Vault ('cron_secret').
+  const provided = req.headers.get('x-cron-secret') ?? '';
+  const { data: expected, error: secretError } = await supabase.rpc('get_cron_secret');
+  if (secretError || !expected || provided !== expected) {
+    return json({ error: 'No autorizado' }, 403);
   }
 
   // { force: true } salta el guard horario (pruebas manuales con curl)
@@ -60,8 +70,6 @@ Deno.serve(async (req) => {
     }).format(now)
   );
   if (hourMadrid !== 21 && !force) return json({ skipped: 'hour', hourMadrid });
-
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey);
 
   const { data: subs, error } = await supabase
     .from('push_subscriptions')
