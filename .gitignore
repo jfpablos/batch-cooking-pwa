@@ -15,6 +15,9 @@ dist-ssr
 # Supabase CLI (estado local del enlace al proyecto)
 supabase/.temp/
 
+# Claves VAPID de Web Push (secretas, generadas con scripts/generate-vapid.mjs)
+vapid.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

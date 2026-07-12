@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
   PROFILE: 'batchfit:profile',
   RECIPE_PREFS: 'batchfit:recipe_prefs',
   MEAL_LOG: 'batchfit:meal_log',
+  DAILY_ACTIONS: 'batchfit:daily_actions_done',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

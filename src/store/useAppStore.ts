@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AppState, WeeklyMenu, ShoppingList, BatchCookingGuide, StoredWeek, PantryItem, UserProfile, RecipePrefs, MealLog } from '../types';
+import type { AppState, WeeklyMenu, ShoppingList, BatchCookingGuide, StoredWeek, PantryItem, UserProfile, RecipePrefs, MealLog, DailyActionsDone } from '../types';
 import { storageService } from '../services/storageService';
 import { STORAGE_KEYS } from '../utils/storageKeys';
 import { normalizeText } from '../utils/textUtils';
@@ -25,6 +25,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   profile: loadProfile(),
   recipePrefs: loadPrefs(),
   mealLog: storageService.get<MealLog>(STORAGE_KEYS.MEAL_LOG),
+  dailyActionsDone: storageService.get<DailyActionsDone>(STORAGE_KEYS.DAILY_ACTIONS),
 
   // UI
   activeTab: 0,
@@ -49,6 +50,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       profile: loadProfile(),
       recipePrefs: loadPrefs(),
       mealLog: storageService.get<MealLog>(STORAGE_KEYS.MEAL_LOG),
+      dailyActionsDone: storageService.get<DailyActionsDone>(STORAGE_KEYS.DAILY_ACTIONS),
     }),
   setCurrentMenu: (menu) => set({ currentMenu: menu }),
   setShoppingList: (list) => set({ shoppingList: list }),
@@ -106,6 +108,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     log.done[day] = dayLog;
     storageService.set(STORAGE_KEYS.MEAL_LOG, log);
     set({ mealLog: log });
+  },
+  toggleDailyAction: (menuId, actionId) => {
+    const current = get().dailyActionsDone;
+    // Registro nuevo al cambiar de menú (semana nueva → acciones a cero)
+    const base: DailyActionsDone = current && current.menuId === menuId
+      ? { ...current, done: [...current.done] }
+      : { menuId, done: [] };
+    const updated: DailyActionsDone = {
+      ...base,
+      done: base.done.includes(actionId)
+        ? base.done.filter(id => id !== actionId)
+        : [...base.done, actionId],
+    };
+    storageService.set(STORAGE_KEYS.DAILY_ACTIONS, updated);
+    set({ dailyActionsDone: updated });
   },
   startTimer: (taskOrder, seconds) =>
     set({

@@ -23,6 +23,20 @@ export default function App() {
   const activeTab = useAppStore(s => s.activeTab);
   const ActiveScreen = SCREENS[activeTab] ?? MenuGeneratorScreen;
 
+  // Deep-link ?tab=N (lo usa el click en la notificación push para abrir Batch)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = Number(params.get('tab'));
+    if (params.has('tab') && Number.isInteger(tab) && tab >= 0 && tab < SCREENS.length) {
+      useAppStore.getState().setActiveTab(tab);
+    }
+    if (params.has('tab')) {
+      params.delete('tab');
+      const query = params.toString();
+      window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
+    }
+  }, []);
+
   // Aviso al usuario si una escritura en localStorage falla (cuota llena):
   // sin esto los datos se ven en pantalla pero se pierden al recargar.
   useEffect(() => {

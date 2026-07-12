@@ -66,6 +66,65 @@ npx supabase functions deploy youtube-playlist
 > invocación. El análisis de vídeo suele tardar 30–90 s, así que cabe, pero un
 > vídeo muy largo puede fallar y quedará como pendiente para reintentarlo.
 
+## 4b. Recordatorios Web Push (descongelación a las 21:00)
+
+La Edge Function `send-reminders` envía cada noche a las 21:00 (hora de Madrid)
+una notificación push al móvil si hay que bajar algo del congelador a la
+nevera para el día siguiente.
+
+**1. Generar el par de claves VAPID** (una sola vez):
+
+```bash
+node scripts/generate-vapid.mjs
+```
+
+Escribe `vapid.json` (está en `.gitignore`) e imprime la
+`VITE_VAPID_PUBLIC_KEY` para el paso 5.
+
+> Guarda `vapid.json` en un sitio seguro (¡y fuera del repo!). La clave pública
+> derivada es la que verá el navegador.
+
+**2. Secrets de la función:**
+
+```bash
+npx supabase secrets set VAPID_KEYS="$(cat vapid.json)"
+npx supabase secrets set VAPID_CONTACT=mailto:jfpablos@gmail.com
+npx supabase functions deploy send-reminders
+```
+
+**3. Secretos de Vault para el cron** (SQL Editor, ANTES de aplicar la
+migración `20260712120000_push_reminders.sql`):
+
+```sql
+select vault.create_secret('https://TU-PROYECTO.supabase.co', 'project_url');
+select vault.create_secret('TU_SERVICE_ROLE_KEY', 'service_role_key');
+```
+
+(La service_role key está en **Settings → API Keys**. Nunca sale de la base de
+datos: los jobs de pg_cron la usan para autenticarse contra la función.)
+
+**4. Aplicar la migración** (`npx supabase db push` o pegando
+`supabase/migrations/20260712120000_push_reminders.sql` en el SQL Editor).
+Crea la tabla `push_subscriptions` y dos jobs de cron (19:00 y 20:00 UTC; la
+función solo envía cuando en Madrid son las 21:00, así el cambio de hora se
+gestiona solo).
+
+**5. Clave pública en el cliente**: añade `VITE_VAPID_PUBLIC_KEY` (la del paso
+1) a `.env.local` y como secret de GitHub Actions. Después, en la app
+(pestaña Batch → tarjeta "Hoy") activa el interruptor "Recordatorio de
+descongelar".
+
+**Prueba end-to-end** (con la app instalada y el toggle activado):
+
+```bash
+curl -X POST https://TU-PROYECTO.supabase.co/functions/v1/send-reminders \
+  -H "Authorization: Bearer TU_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" -d '{"force":true}'
+```
+
+Debe responder `{"sent":1,...}` y llegar la notificación al móvil (si hoy hay
+algo que descongelar y no está marcado como hecho).
+
 ## 5. Configurar el frontend
 
 **Desarrollo** — crea `.env.local`:
@@ -78,7 +137,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 **Producción (GitHub Pages)** — en el repo de GitHub:
 **Settings → Secrets and variables → Actions**:
 
-- Crea `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
+- Crea `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` y `VITE_VAPID_PUBLIC_KEY` (paso 4b).
 - Los antiguos `VITE_GEMINI_API_KEY` / `VITE_YOUTUBE_API_KEY` ya no se usan; puedes borrarlos.
 
 Haz push a `master` para que el workflow despliegue la nueva versión.

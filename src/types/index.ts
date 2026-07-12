@@ -341,6 +341,15 @@ export interface MealLog {
 }
 
 // =============================================
+// ACCIONES DIARIAS DE CONSERVACIÓN (hecho/pendiente)
+// =============================================
+
+export interface DailyActionsDone {
+  menuId: string;
+  done: string[];  // ids de DailyAction marcadas como hechas
+}
+
+// =============================================
 // DESPENSA (ingredientes a gastar)
 // =============================================
 
@@ -389,6 +398,7 @@ export interface AppState {
   profile: UserProfile;
   recipePrefs: RecipePrefs;
   mealLog: MealLog | null;
+  dailyActionsDone: DailyActionsDone | null;
 
   // UI
   activeTab: number;
@@ -412,6 +422,7 @@ export interface AppState {
   toggleFavorite: (recipeName: string) => void;
   toggleBanned: (recipeName: string) => void;
   toggleMealDone: (menuId: string, day: DayName, meal: MealKey) => void;
+  toggleDailyAction: (menuId: string, actionId: string) => void;
   startTimer: (taskOrder: number, seconds: number) => void;
   pauseTimer: () => void;
   resumeTimer: () => void;

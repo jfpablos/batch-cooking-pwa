@@ -1,5 +1,6 @@
 import { Sparkles, UtensilsCrossed, ShoppingCart, ChefHat, Play, History } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
+import { useDailyActions } from '../../hooks/useDailyActions';
 
 const TABS = [
   { icon: Sparkles,       label: 'Generar',   tab: 0 },
@@ -13,6 +14,8 @@ const TABS = [
 export function BottomNav() {
   const activeTab = useAppStore(s => s.activeTab);
   const setActiveTab = useAppStore(s => s.setActiveTab);
+  // Punto en la pestaña Batch si hoy quedan acciones de conservación pendientes
+  const { pendingCount } = useDailyActions();
 
   return (
     <nav
@@ -76,6 +79,12 @@ export function BottomNav() {
                     strokeWidth={active ? 2.2 : 1.7}
                     stroke={active ? 'var(--orange)' : 'var(--muted-2)'}
                   />
+                  {tab === 3 && pendingCount > 0 && (
+                    <span style={{
+                      position: 'absolute', top: -2, right: -3, width: 7, height: 7,
+                      borderRadius: 999, background: 'var(--orange)',
+                    }} />
+                  )}
                 </div>
               </div>
               <span

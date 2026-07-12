@@ -6,3 +6,6 @@ verify_jwt = true
 
 [functions.youtube-playlist]
 verify_jwt = true
+
+[functions.send-reminders]
+verify_jwt = true

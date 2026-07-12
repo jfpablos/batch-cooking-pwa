@@ -6,15 +6,26 @@ import { useAppStore } from '../../store/useAppStore';
 import { useMealSwap } from '../../hooks/useMealSwap';
 import { menuService } from '../../services/menuService';
 import { dayTargetKcal, scaledMealTargets, MEAL_KEYS } from '../../utils/constants';
-import type { BaseRecipe, DayMenu, MealKey } from '../../types';
+import { getWeekDates, isMenuActiveOn, todayLocalISO } from '../../utils/dailyActions';
+import type { BaseRecipe, DayMenu, MealKey, WeeklyMenu } from '../../types';
 
-const DAY_LABELS: Record<string, { short: string; label: string; date: string }> = {
-  lunes:     { short: 'LUN', label: 'Lunes',     date: '' },
-  martes:    { short: 'MAR', label: 'Martes',    date: '' },
-  miercoles: { short: 'MIÉ', label: 'Miércoles', date: '' },
-  jueves:    { short: 'JUE', label: 'Jueves',    date: '' },
-  viernes:   { short: 'VIE', label: 'Viernes',   date: '' },
+const DAY_LABELS: Record<string, { short: string; label: string }> = {
+  lunes:     { short: 'LUN', label: 'Lunes' },
+  martes:    { short: 'MAR', label: 'Martes' },
+  miercoles: { short: 'MIÉ', label: 'Miércoles' },
+  jueves:    { short: 'JUE', label: 'Jueves' },
+  viernes:   { short: 'VIE', label: 'Viernes' },
 };
+
+// Día inicial del selector: hoy si el menú está vigente y es L-V; si no, lunes.
+function initialDayIdx(menu: WeeklyMenu | null): number {
+  if (!menu) return 0;
+  const today = todayLocalISO();
+  if (!isMenuActiveOn(menu, today)) return 0;
+  const dates = getWeekDates(menu);
+  const idx = menu.days.findIndex(d => dates[d.day] === today);
+  return idx >= 0 ? idx : 0;
+}
 
 const MEAL_CONFIG = [
   { key: 'desayuno',    label: 'Desayuno',     time: '07:00', stripe: 'desayuno',  color: 'var(--amber)' },
@@ -46,7 +57,7 @@ export function MenuDisplayScreen() {
   const mealLog = useAppStore(s => s.mealLog);
   const toggleMealDone = useAppStore(s => s.toggleMealDone);
   const { swapMeal, swapping } = useMealSwap();
-  const [dayIdx, setDayIdx] = useState(0);
+  const [dayIdx, setDayIdx] = useState(() => initialDayIdx(currentMenu));
   const [selectedRecipe, setSelectedRecipe] = useState<BaseRecipe | null>(null);
 
   if (!currentMenu) {
@@ -64,6 +75,11 @@ export function MenuDisplayScreen() {
   const day: DayMenu = currentMenu.days[dayIdx];
   const getRecipe = (name: string) => menuService.getRecipeFromMenu(currentMenu, name);
   const dayKeys = currentMenu.days.map(d => d.day);
+
+  // Fechas reales de la semana del menú para el selector (y marca de HOY)
+  const weekDates = getWeekDates(currentMenu);
+  const todayISO = todayLocalISO();
+  const menuActive = isMenuActiveOn(currentMenu, todayISO);
 
   // Objetivo kcal del día: solo comidas planificadas, escalado al perfil
   const mealTargets = scaledMealTargets(profile);
@@ -122,6 +138,8 @@ export function MenuDisplayScreen() {
           {dayKeys.map((key, i) => {
             const active = i === dayIdx;
             const info = DAY_LABELS[key];
+            const date = weekDates[key];
+            const isToday = menuActive && date === todayISO;
             return (
               <button
                 key={key}
@@ -131,14 +149,22 @@ export function MenuDisplayScreen() {
                   flex: 1, minWidth: 0, height: 56, borderRadius: 14, cursor: 'pointer',
                   background: active ? 'var(--ink)' : 'var(--card)',
                   color: active ? 'var(--cream)' : 'var(--ink)',
-                  border: '1px solid ' + (active ? 'var(--ink)' : 'var(--line)'),
+                  border: (isToday && !active ? '2px solid var(--orange)' : '1px solid ' + (active ? 'var(--ink)' : 'var(--line)')),
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
                   fontFamily: 'var(--ff-display)', transition: 'all .15s',
                   boxSizing: 'border-box' as const,
                 }}
               >
-                <span style={{ fontSize: 10, letterSpacing: '0.1em', fontWeight: 600, opacity: 0.65, fontFamily: 'var(--ff-display)' }}>{info?.short ?? key.slice(0,3).toUpperCase()}</span>
-                <span className="num" style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em' }}>{i + 1}</span>
+                <span style={{
+                  fontSize: 10, letterSpacing: '0.1em', fontWeight: isToday ? 700 : 600,
+                  opacity: isToday ? 1 : 0.65, fontFamily: 'var(--ff-display)',
+                  color: isToday ? 'var(--orange)' : undefined,
+                }}>
+                  {isToday ? 'HOY' : info?.short ?? key.slice(0,3).toUpperCase()}
+                </span>
+                <span className="num" style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                  {date ? Number(date.slice(8)) : i + 1}
+                </span>
               </button>
             );
           })}

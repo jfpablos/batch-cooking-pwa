@@ -51,6 +51,9 @@ export default defineConfig(({ command }) => {
         },
         workbox: {
           cacheId: 'batchfit-v1',
+          // Handlers push/notificationclick (recordatorios de descongelación).
+          // Ruta relativa al scope del SW: funciona en dev (/) y en Pages.
+          importScripts: ['push-sw.js'],
           runtimeCaching: [
             {
               // Todo el backend (auth, datos y Edge Functions) siempre por red:

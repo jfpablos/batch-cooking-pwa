@@ -1,15 +1,9 @@
-import type { ConservationEntry, DayName, WeeklyMenu } from '../types';
+import type { ConservationEntry, WeeklyMenu } from '../types';
 import { menuService } from '../services/menuService';
 import { DAYS as DAY_ORDER } from './constants';
-
-// Días transcurridos desde el domingo de batch cooking hasta el consumo
-const DAY_OFFSET: Record<DayName, number> = {
-  lunes: 1,
-  martes: 2,
-  miercoles: 3,
-  jueves: 4,
-  viernes: 5,
-};
+// Regla de congelación compartida con la Edge Function send-reminders:
+// mantener en sync con buildFallbackPlan de _shared/dailyActions.ts.
+import { DAY_OFFSET } from './dailyActions';
 
 /**
  * Plan de conservación básico derivado de los campos "storage" de cada receta

@@ -9,6 +9,7 @@ import { useTimer, formatTimer } from '../../hooks/useTimer';
 import { useWakeLock } from '../../hooks/useWakeLock';
 import { unlockAudio } from '../../utils/alarm';
 import { ConservationCard } from './ConservationCard';
+import { TodayPanel } from '../DailyActions/TodayPanel';
 import { EmptyState } from '../Common/EmptyState';
 import type { BaseRecipe, BatchProgress, ConservationEntry } from '../../types';
 
@@ -193,6 +194,9 @@ export function BatchGuideScreen() {
       className="h-full overflow-y-auto fade-in"
       style={{ paddingTop: 'var(--safe-area-top)' }}
     >
+      {/* ── Hoy: acciones de conservación del día ── */}
+      {!cooking && <TodayPanel />}
+
       {/* ── Header ── */}
       <div style={{ padding: '14px 18px 0' }}>
         <div className="eyebrow">Batch · domingo</div>

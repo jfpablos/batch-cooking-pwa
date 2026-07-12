@@ -55,14 +55,19 @@ If Gemini is not configured or fails, `menuService.createWeeklyMenuFromBase()` g
 | `src/services/menuService.ts` | Builds `WeeklyMenu` from AI response or base recipes; `getAllRecipeNames()` feeds the anti-repetition history |
 | `src/services/shoppingListService.ts` | Aggregates ingredients across all 5 days, groups into 7 categories via `CATEGORY_MAP` |
 | `src/hooks/useHistoryRotation.ts` | Reads/writes `batchfit:menu_history`; keeps last 4 weeks; `getExcludeNames()` returns all recipe names to exclude from next generation |
+| `supabase/functions/_shared/dailyActions.ts` | **Self-contained** (zero imports) daily-actions engine shared by client and server: derives thaw/freeze/eat actions per day from the menu + conservation plan; real week dates come from `generatedAt` (weekend → next Monday). Client re-exports it via `src/utils/dailyActions.ts` |
+| `src/components/DailyActions/` | `TodayPanel` ("Hoy" card at the top of the Batch tab: today's thaw/freeze checklist, `batchfit:daily_actions_done`) + `PushToggle` (Web Push opt-in) |
+| `src/services/pushService.ts` | Web Push subscription client (VAPID via `VITE_VAPID_PUBLIC_KEY`, rows in `push_subscriptions`); SW handlers in `public/push-sw.js` injected through `workbox.importScripts` |
+| `supabase/functions/send-reminders/` | Nightly push sender: invoked by two pg_cron jobs (19:00/20:00 UTC), only sends when it's 21:00 in Madrid; service-role only; prunes dead subscriptions (404/410) |
 | `src/store/useAppStore.ts` | Zustand store initialized from localStorage on startup |
 
 ### Environment variables (`.env.local`)
 ```
 VITE_SUPABASE_URL=          # Supabase project URL
 VITE_SUPABASE_ANON_KEY=     # Supabase anon/public key (public by design)
+VITE_VAPID_PUBLIC_KEY=      # VAPID public key for Web Push reminders (public by design; omit to hide the toggle)
 ```
-Gemini/YouTube API keys live as Edge Function secrets (`GEMINI_API_KEY`, `YOUTUBE_API_KEY`, `YOUTUBE_PLAYLIST_ID`, `ALLOWED_EMAILS`) — see `SETUP-SUPABASE.md`. Without the `VITE_SUPABASE_*` vars the app runs in local mode (no login, base recipes, Videos tab shows a setup message). The GitHub Pages deploy workflow injects them from repo Actions secrets.
+Gemini/YouTube API keys live as Edge Function secrets (`GEMINI_API_KEY`, `YOUTUBE_API_KEY`, `YOUTUBE_PLAYLIST_ID`, `ALLOWED_EMAILS`); push reminders add `VAPID_KEYS` + `VAPID_CONTACT` (function secrets) and `project_url`/`service_role_key` in Vault for pg_cron — see `SETUP-SUPABASE.md`. Without the `VITE_SUPABASE_*` vars the app runs in local mode (no login, base recipes, Videos tab shows a setup message). The GitHub Pages deploy workflow injects them from repo Actions secrets.
 
 ### Nutritional targets (hardcoded)
 Daily targets for L–V (training days): **3,290 kcal | 165g protein | 454g carbs | 91g fat**. Per-meal targets are in `src/utils/prompts.ts` inside `GEMINI_SYSTEM_PROMPT`. Changing these requires updating both the prompt and `src/components/MenuGenerator/MenuGeneratorScreen.tsx` (display only).
