@@ -5,6 +5,7 @@ import { menuService } from '../../services/menuService';
 import { storageService } from '../../services/storageService';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { buildBasicConservationPlan } from '../../utils/conservationFallback';
+import { normalizeConservationPlan } from '../../utils/dailyActions';
 import { useTimer, formatTimer } from '../../hooks/useTimer';
 import { useWakeLock } from '../../hooks/useWakeLock';
 import { unlockAudio } from '../../utils/alarm';
@@ -119,8 +120,11 @@ export function BatchGuideScreen() {
   })) : DEFAULT_TASKS).slice().sort((a, b) => a.order - b.order);
 
   // Plan de conservación: el detallado de la IA si existe; si no, derivado
-  // de los campos storage de las recetas del menú actual.
-  const conservationEntries: ConservationEntry[] = (
+  // de los campos storage de las recetas del menú actual. Normalizado para
+  // forzar congelación de raciones que no aguantan hasta su día (misma regla
+  // que las acciones diarias y los recordatorios push).
+  const conservationEntries: ConservationEntry[] = normalizeConservationPlan(
+    currentMenu,
     usingGuide && batchGuide!.conservationPlan?.length
       ? batchGuide!.conservationPlan
       : buildBasicConservationPlan(currentMenu)

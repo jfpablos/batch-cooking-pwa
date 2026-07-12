@@ -207,18 +207,54 @@ export function buildFallbackPlan(menu: MinimalMenu): MinimalConservationEntry[]
 }
 
 /**
+ * Endurece el plan de la IA: si una receta CONGELABLE está marcada 'nevera'
+ * pero alguna ración se consume más tarde de lo que aguanta (offset desde el
+ * domingo > fridgeDays), se fuerza 'mixto' (o 'congelador' si todas las
+ * raciones son tardías) para que existan acciones de congelar/descongelar.
+ * Las recetas no congelables se dejan como estén (congelar una ensalada la
+ * estropea; ahí la IA es la única referencia). Preserva el resto de campos
+ * de la entrada (container, portions, reheat...).
+ */
+export function normalizeConservationPlan<T extends MinimalConservationEntry>(
+  menu: MinimalMenu,
+  plan: T[]
+): T[] {
+  return plan.map(entry => {
+    if (entry.method !== 'nevera') return entry;
+    const recipe = menu.recipes.find(r => r.name === entry.recipeName);
+    if (!recipe?.storage.freezable) return entry;
+    const valid = entry.targetDays
+      .filter(d => d in DAY_OFFSET)
+      .sort((a, b) => DAY_OFFSET[a] - DAY_OFFSET[b]);
+    const late = valid.filter(d => DAY_OFFSET[d] > entry.fridgeDays);
+    if (!late.length) return entry;
+    const upgraded = {
+      ...entry,
+      method: late.length === valid.length ? 'congelador' : 'mixto',
+    } as T & { freezeInstructions?: string; thawInstructions?: string };
+    upgraded.freezeInstructions ||=
+      `Congela el domingo las raciones de ${late.join(' y ')}: no aguantan ${entry.fridgeDays} días en nevera.`;
+    upgraded.thawInstructions ||=
+      'Baja cada ración congelada a la nevera la noche anterior a su consumo.';
+    return upgraded;
+  });
+}
+
+/**
  * Plan de conservación efectivo: el detallado de la guía IA si corresponde a
  * este menú y no está vacío; si no, el fallback derivado de las recetas.
- * (Misma cascada que BatchGuideScreen.)
+ * Siempre normalizado (ver normalizeConservationPlan). Misma cascada que
+ * BatchGuideScreen.
  */
 export function resolveConservationPlan(
   menu: MinimalMenu,
   guide: MinimalGuide | null | undefined
 ): MinimalConservationEntry[] {
-  if (guide && guide.menuId === menu.id && guide.conservationPlan?.length) {
-    return guide.conservationPlan;
-  }
-  return buildFallbackPlan(menu);
+  const plan =
+    guide && guide.menuId === menu.id && guide.conservationPlan?.length
+      ? guide.conservationPlan
+      : buildFallbackPlan(menu);
+  return normalizeConservationPlan(menu, plan);
 }
 
 // --- Derivación de acciones ----------------------------------------------------
