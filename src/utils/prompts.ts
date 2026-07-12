@@ -65,7 +65,12 @@ DISTRIBUCIÓN POR COMIDA:
 5. ${fmtMeal('Cena (21:00):', t.cena, '  ← ligera, menos carbos')}
 
 REGLAS DE BATCH COOKING (se prepara el domingo para L-V):
-- Todas las recetas deben conservarse ≥4 días en frigorífico
+- CADUCIDAD ESTRICTA: ningún plato puede consumirse más tarde de sus días de
+  conservación en nevera (storage.days, contando desde el domingo: lunes=1 ... viernes=5),
+  salvo que sea congelable (storage.freezable=true), en cuyo caso las raciones tardías se congelan
+- Por tanto, los platos NO congelables de vida corta (ensaladas, pescado fresco...) van
+  a principio de semana (lunes-miércoles); para jueves y viernes usa platos congelables
+  o que aguanten ≥4-5 días en nevera
 - Las recetas deben ser escalables fácilmente a ×5 raciones
 - Preferir proteínas que congelan bien (pollo, pavo, ternera, pescado)
 - Batidos post-entreno se preparan frescos (no batch), incluir ingredientes en lista

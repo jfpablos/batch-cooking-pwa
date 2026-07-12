@@ -17,6 +17,7 @@ import { recipeService } from './recipeService';
 import { buildFullSelection } from '../utils/prompts';
 import { normalizeText } from '../utils/textUtils';
 import { DAYS, MEAL_KEYS, MEAL_CATEGORY } from '../utils/constants';
+import { reorderForShelfLife } from '../utils/shelfLifeOrder';
 
 const ZERO_NUTRITION: NutritionInfo = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
 
@@ -140,8 +141,11 @@ export const menuService = {
       };
     });
 
+    // Caducidad estricta: perecederos no congelables a principio de semana
+    const orderedDays = reorderForShelfLife(days, recipes);
+
     const nutritionSummary: WeeklyNutritionSummary = {
-      ...avgNutrition(days),
+      ...avgNutrition(orderedDays),
       notes: aiResponse.weeklyNutrition?.notes,
     };
 
@@ -150,7 +154,7 @@ export const menuService = {
       weekNumber,
       year,
       generatedAt: new Date().toISOString(),
-      days,
+      days: orderedDays,
       nutritionSummary,
       recipes,
       source: 'gemini',
@@ -214,13 +218,16 @@ export const menuService = {
       return { day, meals, totalNutrition };
     });
 
+    // Caducidad estricta: perecederos no congelables a principio de semana
+    const orderedDays = reorderForShelfLife(days, recipeService.getAll());
+
     return {
       id: `menu-base-${weekNumber}-${year}-${Date.now()}`,
       weekNumber,
       year,
       generatedAt: new Date().toISOString(),
-      days,
-      nutritionSummary: avgNutrition(days),
+      days: orderedDays,
+      nutritionSummary: avgNutrition(orderedDays),
       recipes: recipeService.getAll(),
       source: 'base',
     };
