@@ -53,10 +53,15 @@ Deno.serve(async (req) => {
     return json({ error: 'No autorizado' }, 403);
   }
 
-  // { force: true } salta el guard horario (pruebas manuales con curl)
+  // { force: true } salta el guard horario; { test: true } envía una
+  // notificación de prueba a todas las suscripciones (verifica el canal push
+  // sin depender de que haya algo que descongelar hoy)
   let force = false;
+  let test = false;
   try {
-    force = !!(await req.json())?.force;
+    const body = await req.json();
+    force = !!body?.force;
+    test = !!body?.test;
   } catch {
     // sin body
   }
@@ -69,7 +74,7 @@ Deno.serve(async (req) => {
       hourCycle: 'h23',
     }).format(now)
   );
-  if (hourMadrid !== 21 && !force) return json({ skipped: 'hour', hourMadrid });
+  if (hourMadrid !== 21 && !force && !test) return json({ skipped: 'hour', hourMadrid });
 
   const { data: subs, error } = await supabase
     .from('push_subscriptions')
@@ -95,6 +100,32 @@ Deno.serve(async (req) => {
   let sent = 0;
   let pruned = 0;
   let skippedUsers = 0;
+
+  const send = async (row: SubscriptionRow, payload: string) => {
+    try {
+      const subscriber = appServer.subscribe({ endpoint: row.endpoint, keys: row.keys });
+      await subscriber.pushTextMessage(payload, {});
+      sent++;
+    } catch (err) {
+      const status = err instanceof webpush.PushMessageError ? err.response.status : undefined;
+      if (status === 404 || status === 410) {
+        // Suscripción caducada o revocada: eliminarla
+        await supabase.from('push_subscriptions').delete().eq('endpoint', row.endpoint);
+        pruned++;
+      } else {
+        console.error(`push a ${row.endpoint.slice(0, 60)}…:`, err);
+      }
+    }
+  };
+
+  if (test) {
+    const payload = JSON.stringify({
+      title: '🔔 Prueba de BatchFit',
+      body: 'Los recordatorios de descongelación funcionan. Te avisaré a las 21:00 cuando toque.',
+    });
+    for (const row of subs as SubscriptionRow[]) await send(row, payload);
+    return json({ sent, pruned, test: true });
+  }
 
   for (const [userId, userSubs] of byUser) {
     const { data: rows, error: stateError } = await supabase
@@ -135,22 +166,7 @@ Deno.serve(async (req) => {
           }
     );
 
-    for (const row of userSubs) {
-      try {
-        const subscriber = appServer.subscribe({ endpoint: row.endpoint, keys: row.keys });
-        await subscriber.pushTextMessage(payload, {});
-        sent++;
-      } catch (err) {
-        const status = err instanceof webpush.PushMessageError ? err.response.status : undefined;
-        if (status === 404 || status === 410) {
-          // Suscripción caducada o revocada: eliminarla
-          await supabase.from('push_subscriptions').delete().eq('endpoint', row.endpoint);
-          pruned++;
-        } else {
-          console.error(`push a ${row.endpoint.slice(0, 60)}…:`, err);
-        }
-      }
-    }
+    for (const row of userSubs) await send(row, payload);
   }
 
   return json({ sent, pruned, skippedUsers });
