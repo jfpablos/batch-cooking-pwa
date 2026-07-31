@@ -1,0 +1,33 @@
+name: Deploy Supabase Edge Functions
+
+# Despliega las Edge Functions cuando cambian (o a mano desde la pestaña
+# Actions). Requiere dos secrets en el repo:
+#   SUPABASE_ACCESS_TOKEN  → Dashboard → Account → Access Tokens
+#   SUPABASE_PROJECT_REF   → ref del proyecto (subdominio de *.supabase.co)
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Sin nombre despliega TODAS las funciones de supabase/functions/,
+      # respetando config.toml (p. ej. verify_jwt=false de send-reminders)
+      - name: Deploy functions
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
