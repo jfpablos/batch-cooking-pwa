@@ -9,6 +9,14 @@ import { HistoryScreen } from './components/History/HistoryScreen';
 import { useAppStore } from './store/useAppStore';
 import { STORAGE_ERROR_EVENT } from './services/storageService';
 import { REMOTE_UPDATE_EVENT } from './services/syncService';
+import { promoteNextMenuIfDue } from './services/promotionService';
+
+// Activa el menú planificado si ya toca (domingo de cocinado) y avisa
+function runPromotion() {
+  if (promoteNextMenuIfDue()) {
+    useAppStore.getState().showToast('Semana nueva: tu menú planificado ya está activo', 'success');
+  }
+}
 
 const SCREENS = [
   MenuGeneratorScreen,
@@ -37,6 +45,18 @@ export default function App() {
     }
   }, []);
 
+  // Promoción del menú de la semana siguiente: al arrancar (App monta tras el
+  // initialSync de AuthGate) y al volver a primer plano (PWA abierta cruzando
+  // la medianoche del sábado al domingo).
+  useEffect(() => {
+    runPromotion();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') runPromotion();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   // Aviso al usuario si una escritura en localStorage falla (cuota llena):
   // sin esto los datos se ven en pantalla pero se pierden al recargar.
   useEffect(() => {
@@ -45,6 +65,8 @@ export default function App() {
     // La reconciliación del sync trajo valores más recientes del servidor
     const onRemoteUpdate = (e: Event) => {
       useAppStore.getState().hydrateFromStorage();
+      // Otro dispositivo pudo subir un menú planificado cuya semana ya llegó
+      runPromotion();
       const conflictKeys = (e as CustomEvent<{ conflictKeys?: string[] }>).detail?.conflictKeys;
       if (conflictKeys?.length) {
         useAppStore.getState().showToast(

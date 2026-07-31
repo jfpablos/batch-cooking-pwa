@@ -34,6 +34,8 @@ useMenuGeneration (hook)
 
 If Gemini is not configured or fails, `menuService.createWeeklyMenuFromBase()` generates a menu from `src/assets/recipes-db.json` (25 base recipes).
 
+**Two-slot menu model**: besides the active menu (`batchfit:current_menu` + shopping list + batch guide), a menu for the **next week** can be generated in advance into `batchfit:next_menu` / `batchfit:next_shopping_list` / `batchfit:next_batch_guide` without touching the current one (Generar has an "Esta semana / Próxima semana" toggle; Compra shows the next list when it exists; Mi Menú has a week switcher). `WeeklyMenu.weekStart` (Monday of the consumption week) makes the shared date logic (`getWeekStart`) work for future weeks; old menus fall back to the `generatedAt` heuristic. `src/services/promotionService.ts` auto-promotes next→current on the menu's cooking Sunday (wired in `App.tsx`: mount, `visibilitychange`, remote updates), and `send-reminders` reads both slots and picks whichever menu is active today.
+
 ### Auth & sync
 `AuthGate` (in `main.tsx`) blocks rendering until there is a Google session, then runs `syncService.initialSync()`: flush pending offline writes → pull server state into localStorage (server wins) → push local-only keys → `useAppStore.hydrateFromStorage()`. Every `storageService.set/remove` write-throughs to the `app_state` table (debounced 800 ms/key; failures queue under `batchfit:sync_pending`, retried on `online`). `batchfit:yt_videos` is device-local and never synced. First login with an empty server migrates all existing local data up.
 

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Sparkles, Calendar, RotateCcw, Check, History, AlertCircle } from 'lucide-react';
+import { Sparkles, Calendar, CalendarClock, RotateCcw, Check, History, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useMenuGeneration } from '../../hooks/useMenuGeneration';
-import { formatDateTime, getCurrentWeekAndYear } from '../../utils/dateUtils';
+import { formatDateTime, targetWeekStartISO, weekAndYearFor } from '../../utils/dateUtils';
+import { addDays, getWeekStart } from '../../utils/dailyActions';
 import { storageService } from '../../services/storageService';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
 import { geminiService } from '../../services/geminiService';
@@ -30,13 +31,21 @@ export function MenuGeneratorScreen() {
   const generationProgress = useAppStore(s => s.generationProgress);
   const error = useAppStore(s => s.error);
   const currentMenu = useAppStore(s => s.currentMenu);
+  const nextMenu = useAppStore(s => s.nextMenu);
   const menuHistory = useAppStore(s => s.menuHistory);
   const profile = useAppStore(s => s.profile);
   const { generateMenu } = useMenuGeneration();
-  const { weekNumber, year } = getCurrentWeekAndYear();
   const lastGenDate = storageService.get<string>(STORAGE_KEYS.LAST_GEN_DATE);
   const geminiOk = geminiService.isConfigured();
   const [creepProgress, setCreepProgress] = useState(0);
+
+  // Semana objetivo de la generación. Por defecto, si el menú actual ya cubre
+  // la semana en curso, se planifica la siguiente (así la compra da tiempo
+  // antes del domingo de cocinado).
+  const [target, setTarget] = useState<'current' | 'next'>(() =>
+    currentMenu && getWeekStart(currentMenu) >= targetWeekStartISO('current') ? 'next' : 'current'
+  );
+  const { weekNumber, year } = weekAndYearFor(targetWeekStartISO(target));
 
   const [selection, setSelection] = useState<MealSelection>(() => {
     const stored = storageService.get<MealSelection>(STORAGE_KEYS.MEAL_SELECTION);
@@ -73,10 +82,12 @@ export function MenuGeneratorScreen() {
 
   const handleGenerate = () => {
     setCreepProgress(0);
-    generateMenu(selection);
+    generateMenu(selection, target);
   };
 
-  const buttonLabel = currentMenu
+  // Regenerar/Generar según haya ya un menú en el slot objetivo
+  const slotOccupied = target === 'next' ? !!nextMenu : !!currentMenu;
+  const buttonLabel = slotOccupied
     ? (allSelected ? 'Regenerar semana' : `Regenerar (${selectedCount} comidas)`)
     : (allSelected ? 'Generar semana' : `Generar ${selectedCount} comida${selectedCount === 1 ? '' : 's'}`);
 
@@ -161,6 +172,32 @@ export function MenuGeneratorScreen() {
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'rgba(245,243,238,0.55)' }}>
             <span style={{ width: 7, height: 7, borderRadius: 999, background: geminiOk ? '#7FCB4A' : '#F59E0B', flexShrink: 0 }} />
             {geminiOk ? '⚡ Gemini 2.5 Flash · IA activa' : 'Banco de recetas base · 25 recetas'}
+          </div>
+
+          {/* Target week selector: planificar la siguiente sin borrar la actual */}
+          <div style={{
+            marginTop: 14, display: 'flex', gap: 4, padding: 4, borderRadius: 12,
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+          }}>
+            {([
+              { key: 'current', label: 'Esta semana' },
+              { key: 'next', label: 'Próxima semana' },
+            ] as const).map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTarget(t.key)}
+                aria-pressed={target === t.key}
+                style={{
+                  flex: 1, minHeight: 44, border: 'none', borderRadius: 9, cursor: 'pointer',
+                  background: target === t.key ? 'rgba(255,255,255,0.14)' : 'transparent',
+                  color: target === t.key ? 'var(--cream)' : 'rgba(245,243,238,0.55)',
+                  fontFamily: 'var(--ff-display)', fontSize: 13.5, fontWeight: 700,
+                  transition: 'all .2s',
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
 
           {/* Generate button */}
@@ -299,6 +336,25 @@ export function MenuGeneratorScreen() {
               <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>Generado {formatDateTime(lastGenDate)}</div>
             </div>
             <RotateCcw size={15} strokeWidth={1.8} style={{ color: 'var(--muted)' }} />
+          </div>
+        )}
+
+        {/* ── Next week menu card ── */}
+        {nextMenu && (
+          <div style={{
+            marginTop: 10, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 14, padding: 14,
+            display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--orange-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CalendarClock size={18} strokeWidth={1.8} style={{ color: 'var(--orange-2)' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600 }}>Próxima semana · S{nextMenu.weekNumber}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                Generado {formatDateTime(nextMenu.generatedAt)} · se activa el domingo{' '}
+                {new Date(addDays(getWeekStart(nextMenu), -1) + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+              </div>
+            </div>
           </div>
         )}
 

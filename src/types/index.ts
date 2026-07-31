@@ -96,6 +96,8 @@ export interface WeeklyMenu {
   weekNumber: number;
   year: number;
   generatedAt: string;
+  /** Lunes 'YYYY-MM-DD' de la semana de consumo; menús antiguos no lo tienen */
+  weekStart?: string;
   days: DayMenu[];
   nutritionSummary: WeeklyNutritionSummary;
   recipes: BaseRecipe[];
@@ -391,6 +393,11 @@ export interface AppState {
   currentMenu: WeeklyMenu | null;
   shoppingList: ShoppingList | null;
   batchGuide: BatchCookingGuide | null;
+  // Menú planificado para la semana siguiente (se promociona a "current"
+  // automáticamente cuando llega su domingo de cocinado)
+  nextMenu: WeeklyMenu | null;
+  nextShoppingList: ShoppingList | null;
+  nextBatchGuide: BatchCookingGuide | null;
   menuHistory: StoredWeek[];
   youtubeVideos: YouTubeVideo[];
   pantryItems: PantryItem[];
@@ -402,6 +409,8 @@ export interface AppState {
 
   // UI
   activeTab: number;
+  /** Semana visible en "Mi Menú" cuando hay menú actual y siguiente */
+  menuView: 'current' | 'next';
   isGenerating: boolean;
   generationStep: string;
   generationProgress: number;
@@ -414,6 +423,10 @@ export interface AppState {
   setCurrentMenu: (menu: WeeklyMenu | null) => void;
   setShoppingList: (list: ShoppingList | null) => void;
   setBatchGuide: (guide: BatchCookingGuide | null) => void;
+  setNextMenu: (menu: WeeklyMenu | null) => void;
+  setNextShoppingList: (list: ShoppingList | null) => void;
+  setNextBatchGuide: (guide: BatchCookingGuide | null) => void;
+  setMenuView: (view: 'current' | 'next') => void;
   setMenuHistory: (history: StoredWeek[]) => void;
   setYoutubeVideos: (videos: YouTubeVideo[]) => void;
   addPantryItem: (name: string) => void;

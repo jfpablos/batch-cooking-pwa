@@ -24,6 +24,8 @@ export function HistoryScreen() {
   const menuHistory = useAppStore(s => s.menuHistory);
   const setMenuHistory = useAppStore(s => s.setMenuHistory);
   const setActiveTab = useAppStore(s => s.setActiveTab);
+  const currentMenu = useAppStore(s => s.currentMenu);
+  const nextMenu = useAppStore(s => s.nextMenu);
   const { clearHistory } = useHistoryRotation();
 
   const handleClear = () => {
@@ -111,15 +113,18 @@ export function HistoryScreen() {
 
         {/* ── Week cards ── */}
         <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {menuHistory.map((w, i) => (
+          {menuHistory.map(w => (
             <div key={w.menuId} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 14 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <span className="eyebrow" style={{ color: 'var(--orange)', fontSize: 11 }}>SEMANA</span>
                     <span className="num display-tight" style={{ fontSize: 28 }}>{w.weekNumber}</span>
-                    {i === 0 && (
+                    {w.menuId === currentMenu?.id && (
                       <span className="chip" style={{ fontSize: 9, padding: '3px 7px' }}>Actual</span>
+                    )}
+                    {w.menuId === nextMenu?.id && (
+                      <span className="chip" style={{ fontSize: 9, padding: '3px 7px' }}>Próxima</span>
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>

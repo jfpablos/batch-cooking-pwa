@@ -30,6 +30,8 @@ import {
 const STATE_KEYS = {
   menu: 'batchfit:current_menu',
   guide: 'batchfit:batch_guide',
+  nextMenu: 'batchfit:next_menu',
+  nextGuide: 'batchfit:next_batch_guide',
   done: 'batchfit:daily_actions_done',
 } as const;
 
@@ -140,12 +142,25 @@ Deno.serve(async (req) => {
     }
     const state = Object.fromEntries((rows ?? []).map(r => [r.key, r.value]));
 
-    const menu = state[STATE_KEYS.menu] as MinimalMenu | undefined;
-    if (!menu || !isMenuActiveOn(menu, today)) {
+    // Menú vigente hoy: el actual o, si ya llegó su semana (domingo de
+    // cocinado) y ningún cliente lo ha promocionado aún, el planificado
+    const candidates: { menu?: MinimalMenu; guide?: MinimalGuide }[] = [
+      {
+        menu: state[STATE_KEYS.menu] as MinimalMenu | undefined,
+        guide: state[STATE_KEYS.guide] as MinimalGuide | undefined,
+      },
+      {
+        menu: state[STATE_KEYS.nextMenu] as MinimalMenu | undefined,
+        guide: state[STATE_KEYS.nextGuide] as MinimalGuide | undefined,
+      },
+    ];
+    const active = candidates.find(c => c.menu && isMenuActiveOn(c.menu, today));
+    if (!active?.menu) {
       skippedUsers++;
       continue;
     }
-    const guide = state[STATE_KEYS.guide] as MinimalGuide | undefined;
+    const menu = active.menu;
+    const guide = active.guide;
     const doneRecord = state[STATE_KEYS.done] as { menuId: string; done: string[] } | undefined;
     const doneIds = new Set(doneRecord?.menuId === menu.id ? doneRecord.done : []);
 
