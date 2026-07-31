@@ -31,7 +31,7 @@ import type {
 } from '../types';
 import { isSupabaseConfigured, invokeFunction, functionErrorMessage } from '../lib/supabase';
 
-const MODEL = 'gemini-2.5-flash';
+const MODEL = 'gemini-3.5-flash';
 
 // Cuerpo de la petición REST de Gemini (generateContent). La API key nunca
 // llega al cliente: la Edge Function gemini-proxy la añade en el servidor.
