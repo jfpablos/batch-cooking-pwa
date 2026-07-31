@@ -6,8 +6,7 @@ name: Deploy Supabase Edge Functions
 #   SUPABASE_PROJECT_REF   → ref del proyecto (subdominio de *.supabase.co)
 on:
   push:
-    # rama de la feature incluida temporalmente para desplegar antes del merge
-    branches: [master, claude/menu-actual-siguiente-w9cupi]
+    branches: [master]
     paths:
       - 'supabase/functions/**'
       - 'supabase/config.toml'
