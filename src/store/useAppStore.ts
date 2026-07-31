@@ -18,6 +18,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentMenu: storageService.get<WeeklyMenu>(STORAGE_KEYS.CURRENT_MENU),
   shoppingList: storageService.get<ShoppingList>(STORAGE_KEYS.SHOPPING_LIST),
   batchGuide: storageService.get<BatchCookingGuide>(STORAGE_KEYS.BATCH_GUIDE),
+  nextMenu: storageService.get<WeeklyMenu>(STORAGE_KEYS.NEXT_MENU),
+  nextShoppingList: storageService.get<ShoppingList>(STORAGE_KEYS.NEXT_SHOPPING_LIST),
+  nextBatchGuide: storageService.get<BatchCookingGuide>(STORAGE_KEYS.NEXT_BATCH_GUIDE),
   menuHistory: storageService.get<{ history: StoredWeek[] }>(STORAGE_KEYS.MENU_HISTORY)?.history ?? [],
   youtubeVideos: [],
   pantryItems: storageService.get<PantryItem[]>(STORAGE_KEYS.PANTRY) ?? [],
@@ -29,6 +32,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // UI
   activeTab: 0,
+  menuView: 'current',
   isGenerating: false,
   generationStep: '',
   generationProgress: 0,
@@ -45,6 +49,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentMenu: storageService.get<WeeklyMenu>(STORAGE_KEYS.CURRENT_MENU),
       shoppingList: storageService.get<ShoppingList>(STORAGE_KEYS.SHOPPING_LIST),
       batchGuide: storageService.get<BatchCookingGuide>(STORAGE_KEYS.BATCH_GUIDE),
+      nextMenu: storageService.get<WeeklyMenu>(STORAGE_KEYS.NEXT_MENU),
+      nextShoppingList: storageService.get<ShoppingList>(STORAGE_KEYS.NEXT_SHOPPING_LIST),
+      nextBatchGuide: storageService.get<BatchCookingGuide>(STORAGE_KEYS.NEXT_BATCH_GUIDE),
       menuHistory: storageService.get<{ history: StoredWeek[] }>(STORAGE_KEYS.MENU_HISTORY)?.history ?? [],
       pantryItems: storageService.get<PantryItem[]>(STORAGE_KEYS.PANTRY) ?? [],
       profile: loadProfile(),
@@ -55,6 +62,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCurrentMenu: (menu) => set({ currentMenu: menu }),
   setShoppingList: (list) => set({ shoppingList: list }),
   setBatchGuide: (guide) => set({ batchGuide: guide }),
+  setNextMenu: (menu) => set({ nextMenu: menu }),
+  setNextShoppingList: (list) => set({ nextShoppingList: list }),
+  setNextBatchGuide: (guide) => set({ nextBatchGuide: guide }),
+  setMenuView: (view) => set({ menuView: view }),
   setMenuHistory: (history) => set({ menuHistory: history }),
   setYoutubeVideos: (videos) => set({ youtubeVideos: videos }),
   addPantryItem: (name) => {

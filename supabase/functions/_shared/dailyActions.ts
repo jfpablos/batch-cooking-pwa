@@ -64,6 +64,8 @@ interface MinimalRecipe {
 export interface MinimalMenu {
   id: string;
   generatedAt: string;
+  /** Lunes 'YYYY-MM-DD' de la semana de consumo; si falta se deriva de generatedAt */
+  weekStart?: string;
   days: { day: string; meals: MinimalDayMeals }[];
   recipes: MinimalRecipe[];
 }
@@ -120,11 +122,14 @@ export function dateInTimeZone(date: Date, timeZone = 'Europe/Madrid'): string {
 }
 
 /**
- * Lunes de la semana de CONSUMO del menú, derivado de generatedAt:
- * generado en sábado/domingo → el lunes siguiente (se cocina el domingo para
- * la semana que empieza); generado L-V → el lunes de esa misma semana.
+ * Lunes de la semana de CONSUMO del menú. Los menús nuevos lo llevan explícito
+ * en weekStart (permite generar la semana siguiente por adelantado); para los
+ * antiguos se deriva de generatedAt: generado en sábado/domingo → el lunes
+ * siguiente (se cocina el domingo para la semana que empieza); generado L-V →
+ * el lunes de esa misma semana.
  */
 export function getWeekStart(menu: MinimalMenu): string {
+  if (menu.weekStart) return menu.weekStart;
   const genDate = dateInTimeZone(new Date(menu.generatedAt));
   const dow = dayOfWeek(genDate);
   if (dow === 0) return addDays(genDate, 1); // domingo → lunes siguiente

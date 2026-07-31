@@ -51,16 +51,35 @@ function MacroChip({ label, value, color }: MacroChipProps) {
 
 export function MenuDisplayScreen() {
   const currentMenu = useAppStore(s => s.currentMenu);
+  const nextMenu = useAppStore(s => s.nextMenu);
+  const menuView = useAppStore(s => s.menuView);
+  const setMenuView = useAppStore(s => s.setMenuView);
   const shoppingList = useAppStore(s => s.shoppingList);
+  const nextShoppingList = useAppStore(s => s.nextShoppingList);
   const setActiveTab = useAppStore(s => s.setActiveTab);
   const profile = useAppStore(s => s.profile);
   const mealLog = useAppStore(s => s.mealLog);
   const toggleMealDone = useAppStore(s => s.toggleMealDone);
-  const { swapMeal, swapping } = useMealSwap();
-  const [dayIdx, setDayIdx] = useState(() => initialDayIdx(currentMenu));
+
+  // Menú visible: el seleccionado en el conmutador; sin menú actual se enseña
+  // el planificado (y viceversa)
+  const menu = menuView === 'next' && nextMenu ? nextMenu : (currentMenu ?? nextMenu);
+  // Vista de la semana planificada (aún no activa): sin adherencia ni HOY
+  const viewingNext = !!menu && !!nextMenu && menu.id === nextMenu.id;
+
+  const { swapMeal, swapping } = useMealSwap(viewingNext ? 'next' : 'current');
+  const [dayIdx, setDayIdx] = useState(() => initialDayIdx(menu));
   const [selectedRecipe, setSelectedRecipe] = useState<BaseRecipe | null>(null);
 
-  if (!currentMenu) {
+  // Al cambiar de menú visible, recolocar el día seleccionado (patrón de
+  // estado derivado: setState durante el render, sin efecto)
+  const [prevMenuId, setPrevMenuId] = useState(menu?.id);
+  if (menu && prevMenuId !== menu.id) {
+    setPrevMenuId(menu.id);
+    setDayIdx(initialDayIdx(menu));
+  }
+
+  if (!menu) {
     return (
       <EmptyState
         icon="📅"
@@ -72,14 +91,14 @@ export function MenuDisplayScreen() {
     );
   }
 
-  const day: DayMenu = currentMenu.days[dayIdx];
-  const getRecipe = (name: string) => menuService.getRecipeFromMenu(currentMenu, name);
-  const dayKeys = currentMenu.days.map(d => d.day);
+  const day: DayMenu = menu.days[Math.min(dayIdx, menu.days.length - 1)];
+  const getRecipe = (name: string) => menuService.getRecipeFromMenu(menu, name);
+  const dayKeys = menu.days.map(d => d.day);
 
   // Fechas reales de la semana del menú para el selector (y marca de HOY)
-  const weekDates = getWeekDates(currentMenu);
+  const weekDates = getWeekDates(menu);
   const todayISO = todayLocalISO();
-  const menuActive = isMenuActiveOn(currentMenu, todayISO);
+  const menuActive = isMenuActiveOn(menu, todayISO);
 
   // Objetivo kcal del día: solo comidas planificadas, escalado al perfil
   const mealTargets = scaledMealTargets(profile);
@@ -88,13 +107,15 @@ export function MenuDisplayScreen() {
   ) as Record<MealKey, boolean>;
   const targetKcal = dayTargetKcal(skippedByMeal, mealTargets);
 
-  // Adherencia del día (comidas marcadas como hechas)
-  const dayLog = mealLog?.menuId === currentMenu.id ? mealLog.done[day.day] ?? {} : {};
+  // Adherencia del día (comidas marcadas como hechas): solo del menú activo —
+  // marcar en la semana planificada machacaría el registro de la actual
+  const dayLog = !viewingNext && mealLog?.menuId === menu.id ? mealLog.done[day.day] ?? {} : {};
   const plannedCount = MEAL_KEYS.filter(k => !day.meals[k].isSkipped).length;
   const doneCount = MEAL_KEYS.filter(k => !day.meals[k].isSkipped && dayLog[k]).length;
 
-  // Punto del carrito solo si quedan ítems por comprar
-  const pendingShoppingItems = (shoppingList?.categories ?? [])
+  // Punto del carrito solo si quedan ítems por comprar (la pestaña Compra
+  // muestra la lista de la próxima semana cuando existe)
+  const pendingShoppingItems = ((nextShoppingList ?? shoppingList)?.categories ?? [])
     .reduce((acc, c) => acc + c.items.filter(i => !i.purchased && !i.inPantry).length, 0);
 
   return (
@@ -107,12 +128,14 @@ export function MenuDisplayScreen() {
         <div style={{ padding: '14px 18px 8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div className="eyebrow">Mi menú · S{currentMenu.weekNumber}</div>
+              <div className="eyebrow">
+                Mi menú · S{menu.weekNumber}{viewingNext ? ' · próxima semana' : ''}
+              </div>
               <div className="display" style={{ fontSize: 26, marginTop: 2 }}>
                 {DAY_LABELS[day.day]?.label ?? day.day}
                 {' '}
                 <span style={{ color: 'var(--muted)', fontWeight: 500 }}>
-                  {currentMenu.source === 'gemini' ? '· IA' : '· Base'}
+                  {menu.source === 'gemini' ? '· IA' : '· Base'}
                 </span>
               </div>
             </div>
@@ -132,6 +155,37 @@ export function MenuDisplayScreen() {
             </button>
           </div>
         </div>
+
+        {/* ── Week selector (menú actual vs planificado) ── */}
+        {currentMenu && nextMenu && currentMenu.id !== nextMenu.id && (
+          <div style={{ padding: '4px 18px 8px', display: 'flex', gap: 8 }}>
+            {([
+              { key: 'current', label: `Esta semana · S${currentMenu.weekNumber}` },
+              { key: 'next', label: `Próxima · S${nextMenu.weekNumber}` },
+            ] as const).map(t => {
+              const active = viewingNext ? t.key === 'next' : t.key === 'current';
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setMenuView(t.key)}
+                  aria-pressed={active}
+                  style={{
+                    all: 'unset' as const, cursor: 'pointer', flex: 1, minHeight: 44,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: 12, boxSizing: 'border-box' as const,
+                    background: active ? 'var(--ink)' : 'var(--card)',
+                    color: active ? 'var(--cream)' : 'var(--ink)',
+                    border: '1px solid ' + (active ? 'var(--ink)' : 'var(--line)'),
+                    fontFamily: 'var(--ff-display)', fontSize: 13, fontWeight: 700,
+                    transition: 'all .15s',
+                  }}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Day selector ── */}
         <div style={{ padding: '6px 18px 12px', display: 'flex', gap: 8 }}>
@@ -179,7 +233,7 @@ export function MenuDisplayScreen() {
                 <span className="num display-tight" style={{ fontSize: 30 }}>{day.totalNutrition.calories.toLocaleString('es-ES')}</span>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' as const, letterSpacing: '0.1em' }}>kcal</span>
               </div>
-              {plannedCount > 0 && (
+              {!viewingNext && plannedCount > 0 && (
                 <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: doneCount === plannedCount ? '#5A9A2E' : 'var(--muted)' }}>
                   <Check size={12} strokeWidth={2.6} />
                   <span className="num">{doneCount}/{plannedCount}</span> comidas hechas
@@ -331,11 +385,13 @@ export function MenuDisplayScreen() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                    {/* Área táctil de 44px (CLAUDE.md) con el círculo visual de 30px dentro */}
+                    {/* Área táctil de 44px (CLAUDE.md) con el círculo visual de 30px dentro.
+                        En la semana planificada no hay adherencia que marcar. */}
+                    {!viewingNext && (
                     <button
                       aria-label={isDone ? 'Desmarcar comida hecha' : 'Marcar comida como hecha'}
                       aria-pressed={isDone}
-                      onClick={e => { e.stopPropagation(); toggleMealDone(currentMenu.id, day.day, mealKey); }}
+                      onClick={e => { e.stopPropagation(); toggleMealDone(menu.id, day.day, mealKey); }}
                       style={{
                         all: 'unset' as const, cursor: 'pointer',
                         width: 44, height: 44,
@@ -353,6 +409,7 @@ export function MenuDisplayScreen() {
                         <Check size={14} strokeWidth={2.6} style={{ color: isDone ? '#fff' : 'var(--muted-2)' }} />
                       </span>
                     </button>
+                    )}
                     <button
                       aria-label="Cambiar esta comida por otra receta"
                       disabled={!!swapping}

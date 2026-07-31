@@ -20,27 +20,35 @@ export interface SwapTarget {
 /**
  * Sustituye una sola comida del menú sin regenerar la semana: pide una receta
  * nueva a Gemini (o coge otra del banco base como fallback), recalcula la
- * nutrición del día y regenera la lista de la compra.
+ * nutrición del día y regenera la lista de la compra. Con slot 'next' opera
+ * sobre el menú planificado de la semana siguiente sin tocar el actual.
  */
-export function useMealSwap() {
+export function useMealSwap(slot: 'current' | 'next' = 'current') {
   const [swapping, setSwapping] = useState<SwapTarget | null>(null);
   const { getExcludeNames } = useHistoryRotation();
 
   async function swapMeal(day: DayName, meal: MealKey): Promise<void> {
-    const {
-      currentMenu, profile, pantryItems, recipePrefs, shoppingList, batchGuide,
-      showToast, setCurrentMenu, setShoppingList, setBatchGuide,
-    } = useAppStore.getState();
-    if (!currentMenu || swapping) return;
+    const state = useAppStore.getState();
+    const { profile, pantryItems, recipePrefs, showToast } = state;
+    const menu = slot === 'next' ? state.nextMenu : state.currentMenu;
+    const shoppingList = slot === 'next' ? state.nextShoppingList : state.shoppingList;
+    const batchGuide = slot === 'next' ? state.nextBatchGuide : state.batchGuide;
+    const setMenu = slot === 'next' ? state.setNextMenu : state.setCurrentMenu;
+    const setList = slot === 'next' ? state.setNextShoppingList : state.setShoppingList;
+    const setGuide = slot === 'next' ? state.setNextBatchGuide : state.setBatchGuide;
+    const MENU_KEY = slot === 'next' ? STORAGE_KEYS.NEXT_MENU : STORAGE_KEYS.CURRENT_MENU;
+    const LIST_KEY = slot === 'next' ? STORAGE_KEYS.NEXT_SHOPPING_LIST : STORAGE_KEYS.SHOPPING_LIST;
+    const GUIDE_KEY = slot === 'next' ? STORAGE_KEYS.NEXT_BATCH_GUIDE : STORAGE_KEYS.BATCH_GUIDE;
+    if (!menu || swapping) return;
 
-    const currentMeal = currentMenu.days.find(d => d.day === day)?.meals[meal];
+    const currentMeal = menu.days.find(d => d.day === day)?.meals[meal];
     if (!currentMeal || currentMeal.isSkipped) return;
 
     setSwapping({ day, meal });
     try {
       const category = MEAL_CATEGORY[meal];
       const targets = scaledMealTargets(profile)[meal];
-      const usedNames = menuService.getAllRecipeNames(currentMenu);
+      const usedNames = menuService.getAllRecipeNames(menu);
       // Mismas exclusiones que la generación semanal: historial + vetadas,
       // más lo ya presente en el menú actual.
       const excludeNames = Array.from(
@@ -83,22 +91,22 @@ export function useMealSwap() {
         recipe = pool[Math.floor(Math.random() * pool.length)];
       }
 
-      const updatedMenu = menuService.replaceMeal(currentMenu, day, meal, recipe);
+      const updatedMenu = menuService.replaceMeal(menu, day, meal, recipe);
       const rawList = shoppingListService.generateFromMenu(updatedMenu);
       const pantryList = shoppingListService.markPantryItems(rawList, pantryItems.map(p => p.name));
       // No perder lo ya marcado como comprado en los ítems que no cambian
       const updatedList = shoppingListService.mergePurchasedState(pantryList, shoppingList);
 
-      storageService.set(STORAGE_KEYS.CURRENT_MENU, updatedMenu);
-      storageService.set(STORAGE_KEYS.SHOPPING_LIST, updatedList);
-      setCurrentMenu(updatedMenu);
-      setShoppingList(updatedList);
+      storageService.set(MENU_KEY, updatedMenu);
+      storageService.set(LIST_KEY, updatedList);
+      setMenu(updatedMenu);
+      setList(updatedList);
 
       // La guía de batch guardada describe la receta sustituida: se invalida
       // para que la pestaña Batch use la guía base derivada del menú nuevo.
-      if (batchGuide && batchGuide.menuId === currentMenu.id) {
-        storageService.remove(STORAGE_KEYS.BATCH_GUIDE);
-        setBatchGuide(null);
+      if (batchGuide && batchGuide.menuId === menu.id) {
+        storageService.remove(GUIDE_KEY);
+        setGuide(null);
       }
 
       showToast(`Cambiado por "${recipe.name}"`, 'success');

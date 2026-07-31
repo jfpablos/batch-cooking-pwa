@@ -6,7 +6,7 @@ import { storageService } from '../services/storageService';
 import { youtubeService } from '../services/youtubeService';
 import { videoRecipeService } from '../services/videoRecipeService';
 import { STORAGE_KEYS } from '../utils/storageKeys';
-import { getCurrentWeekAndYear } from '../utils/dateUtils';
+import { targetWeekStartISO, weekAndYearFor } from '../utils/dateUtils';
 import { useHistoryRotation } from './useHistoryRotation';
 import { buildFullSelection, getCurrentSeason } from '../utils/prompts';
 import { buildBasicConservationPlan } from '../utils/conservationFallback';
@@ -45,18 +45,27 @@ export function useMenuGeneration() {
   const setCurrentMenu = useAppStore(s => s.setCurrentMenu);
   const setShoppingList = useAppStore(s => s.setShoppingList);
   const setBatchGuide = useAppStore(s => s.setBatchGuide);
+  const setNextMenu = useAppStore(s => s.setNextMenu);
+  const setNextShoppingList = useAppStore(s => s.setNextShoppingList);
+  const setNextBatchGuide = useAppStore(s => s.setNextBatchGuide);
+  const setMenuView = useAppStore(s => s.setMenuView);
   const showToast = useAppStore(s => s.showToast);
   const setActiveTab = useAppStore(s => s.setActiveTab);
   const resetTimer = useAppStore(s => s.resetTimer);
 
   const { getExcludeNames, addMenuToHistory } = useHistoryRotation();
 
-  async function generateMenu(selection: MealSelection = buildFullSelection()) {
+  async function generateMenu(
+    selection: MealSelection = buildFullSelection(),
+    target: 'current' | 'next' = 'current'
+  ) {
     setGenerating(true, STEPS[0], 0);
     setError(null);
 
     try {
-      const { weekNumber, year } = getCurrentWeekAndYear();
+      // Semana y año de la semana OBJETIVO (esta o la siguiente), no de hoy
+      const weekStart = targetWeekStartISO(target);
+      const { weekNumber, year } = weekAndYearFor(weekStart);
       const { pantryItems, recipePrefs, profile } = useAppStore.getState();
       // Anti-repetición (últimas 4 semanas) + recetas vetadas por el usuario
       const excludeNames = Array.from(new Set([...getExcludeNames(), ...recipePrefs.banned]));
@@ -66,6 +75,9 @@ export function useMenuGeneration() {
       const favoriteRecipes = recipePrefs.favorites.filter(f => !excludeSet.has(normalizeText(f)));
 
       let weeklyMenu: WeeklyMenu;
+      // La guía se persiste al final junto al menú, en el slot que toque:
+      // escribirla antes pisaría la guía de la semana en curso al generar next.
+      let guide: BatchCookingGuide | null = null;
 
       if (geminiService.isConfigured()) {
         try {
@@ -98,13 +110,12 @@ export function useMenuGeneration() {
           );
 
           setGenerating(true, STEPS[1], 40);
-          weeklyMenu = menuService.createWeeklyMenuFromAI(aiResponse, weekNumber, year, selection);
+          weeklyMenu = menuService.createWeeklyMenuFromAI(aiResponse, weekNumber, year, selection, weekStart);
 
           // Segunda llamada: guía ultra-detallada + plan de conservación.
           // Las recetas "al momento" (batidos, gachas...) no entran en el batch
           // del domingo, así que se excluyen de la guía y de la conservación.
           setGenerating(true, STEPS[2], 45);
-          let guide: BatchCookingGuide;
           try {
             const schedule = menuService.buildRecipeSchedule(weeklyMenu);
             const batchSchedule = schedule.filter(s => {
@@ -139,19 +150,18 @@ export function useMenuGeneration() {
               generatedAt: new Date().toISOString(),
             };
           }
-          storageService.set(STORAGE_KEYS.BATCH_GUIDE, guide);
-          setBatchGuide(guide);
           setGenerating(true, STEPS[2], 70);
         } catch (geminiError) {
           console.warn('[MenuGen] Gemini falló, usando banco base:', geminiError);
           setGenerating(true, 'Gemini no disponible, usando banco de recetas...', 20);
           await new Promise(r => setTimeout(r, 1000));
-          weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year, selection);
+          guide = null;
+          weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year, selection, weekStart);
         }
       } else {
         setGenerating(true, 'Usando banco de recetas base (sin API key Gemini)...', 20);
         await new Promise(r => setTimeout(r, 800));
-        weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year, selection);
+        weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year, selection, weekStart);
       }
 
       setGenerating(true, STEPS[3], 80);
@@ -162,22 +172,38 @@ export function useMenuGeneration() {
       setGenerating(true, STEPS[4], 92);
       await new Promise(r => setTimeout(r, 300));
 
-      // Persist
-      storageService.set(STORAGE_KEYS.CURRENT_MENU, weeklyMenu);
-      storageService.set(STORAGE_KEYS.SHOPPING_LIST, shoppingList);
-      storageService.set(STORAGE_KEYS.LAST_GEN_DATE, new Date().toISOString());
+      // Persist en el slot objetivo: 'next' no toca nada del menú en curso
+      if (target === 'next') {
+        storageService.set(STORAGE_KEYS.NEXT_MENU, weeklyMenu);
+        storageService.set(STORAGE_KEYS.NEXT_SHOPPING_LIST, shoppingList);
+        if (guide) storageService.set(STORAGE_KEYS.NEXT_BATCH_GUIDE, guide);
+        else storageService.remove(STORAGE_KEYS.NEXT_BATCH_GUIDE);
 
-      // Nueva semana: progreso de la guía batch y temporizador a cero
-      storageService.remove(STORAGE_KEYS.BATCH_PROGRESS);
-      resetTimer();
+        setNextMenu(weeklyMenu);
+        setNextShoppingList(shoppingList);
+        setNextBatchGuide(guide);
+      } else {
+        storageService.set(STORAGE_KEYS.CURRENT_MENU, weeklyMenu);
+        storageService.set(STORAGE_KEYS.SHOPPING_LIST, shoppingList);
+        storageService.set(STORAGE_KEYS.LAST_GEN_DATE, new Date().toISOString());
+        if (guide) storageService.set(STORAGE_KEYS.BATCH_GUIDE, guide);
 
-      // Update store
-      setCurrentMenu(weeklyMenu);
-      setShoppingList(shoppingList);
+        // Nueva semana: progreso de la guía batch y temporizador a cero
+        storageService.remove(STORAGE_KEYS.BATCH_PROGRESS);
+        resetTimer();
+
+        setCurrentMenu(weeklyMenu);
+        setShoppingList(shoppingList);
+        if (guide) setBatchGuide(guide);
+      }
       addMenuToHistory(weeklyMenu);
 
       setGenerating(false, '', 100);
-      showToast('¡Menú generado correctamente!', 'success');
+      showToast(
+        target === 'next' ? '¡Menú de la próxima semana generado!' : '¡Menú generado correctamente!',
+        'success'
+      );
+      setMenuView(target);
       setActiveTab(1); // navigate to menu tab
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Error desconocido';

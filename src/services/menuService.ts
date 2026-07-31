@@ -94,7 +94,8 @@ export const menuService = {
     aiResponse: GeneratedMenuResponse,
     weekNumber: number,
     year: number,
-    selection: MealSelection = buildFullSelection()
+    selection: MealSelection = buildFullSelection(),
+    weekStart?: string
   ): WeeklyMenu {
     const recipes: BaseRecipe[] = aiResponse.recipes.map(geminiRecipeToBase);
     const recipeMap = new Map(recipes.map(r => [normalizeText(r.name), r]));
@@ -154,6 +155,7 @@ export const menuService = {
       weekNumber,
       year,
       generatedAt: new Date().toISOString(),
+      weekStart,
       days: orderedDays,
       nutritionSummary,
       recipes,
@@ -165,7 +167,8 @@ export const menuService = {
     excludeNames: string[],
     weekNumber: number,
     year: number,
-    selection: MealSelection = buildFullSelection()
+    selection: MealSelection = buildFullSelection(),
+    weekStart?: string
   ): WeeklyMenu {
     const excludeSet = new Set(excludeNames.map(n => n.toLowerCase()));
     const usedIds = new Set<string>();
@@ -226,6 +229,7 @@ export const menuService = {
       weekNumber,
       year,
       generatedAt: new Date().toISOString(),
+      weekStart,
       days: orderedDays,
       nutritionSummary: avgNutrition(orderedDays),
       recipes: recipeService.getAll(),

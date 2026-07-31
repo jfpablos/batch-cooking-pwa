@@ -9,12 +9,21 @@ import { STORAGE_KEYS } from '../../utils/storageKeys';
 import type { ShoppingCategoryName } from '../../types';
 
 export function ShoppingListScreen() {
-  const shoppingList = useAppStore(s => s.shoppingList);
+  const currentList = useAppStore(s => s.shoppingList);
+  const nextList = useAppStore(s => s.nextShoppingList);
   const setShoppingList = useAppStore(s => s.setShoppingList);
+  const setNextShoppingList = useAppStore(s => s.setNextShoppingList);
   const setActiveTab = useAppStore(s => s.setActiveTab);
   const currentMenu = useAppStore(s => s.currentMenu);
+  const nextMenu = useAppStore(s => s.nextMenu);
   const showToast = useAppStore(s => s.showToast);
   const [copying, setCopying] = useState(false);
+
+  // La compra sirve para el batch del domingo: si hay menú planificado para
+  // la semana siguiente, se enseña SU lista (la del actual ya se compró)
+  const isNext = !!nextList;
+  const shoppingList = nextList ?? currentList;
+  const menuForLabel = isNext ? nextMenu : currentMenu;
 
   if (!shoppingList) {
     return (
@@ -34,8 +43,13 @@ export function ShoppingListScreen() {
 
   const handleToggle = (categoryName: ShoppingCategoryName, itemName: string) => {
     const updated = shoppingListService.toggleItem(shoppingList, categoryName, itemName);
-    setShoppingList(updated);
-    storageService.set(STORAGE_KEYS.SHOPPING_LIST, updated);
+    if (isNext) {
+      setNextShoppingList(updated);
+      storageService.set(STORAGE_KEYS.NEXT_SHOPPING_LIST, updated);
+    } else {
+      setShoppingList(updated);
+      storageService.set(STORAGE_KEYS.SHOPPING_LIST, updated);
+    }
   };
 
   const handleCopy = async () => {
@@ -84,7 +98,9 @@ export function ShoppingListScreen() {
       <div style={{ padding: '14px 18px 28px' }}>
 
         {/* ── Header ── */}
-        <div className="eyebrow">Lista · S{currentMenu?.weekNumber ?? ''}</div>
+        <div className="eyebrow">
+          Lista · S{menuForLabel?.weekNumber ?? ''}{isNext ? ' · próxima semana' : ''}
+        </div>
         <div className="display" style={{ fontSize: 26, marginTop: 2 }}>Compra del domingo</div>
 
         {/* ── Progress card ── */}
