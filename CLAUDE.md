@@ -25,7 +25,7 @@ There is **no React Router**. Navigation is a simple tab index (0–5) stored in
 ### Data flow
 ```
 useMenuGeneration (hook)
-  → geminiService.generateWeeklyMenu()   ← Edge Function gemini-proxy → Gemini 2.5 Flash (JSON mode)
+  → geminiService.generateWeeklyMenu()   ← Edge Function gemini-proxy → Gemini 3.5 Flash (JSON mode)
   → menuService.createWeeklyMenuFromAI() ← transforms GeminiResponse → WeeklyMenu
   → shoppingListService.generateFromMenu()
   → storageService.set()                 ← localStorage CRUD + write-through to Supabase (syncService)

@@ -8,7 +8,7 @@ Pensado para móvil (instalable como app desde el navegador) y para funcionar si
 
 ## Características
 
-- **Generación de menú con IA** (Google Gemini 2.5 Flash) ajustada a tus objetivos calóricos y de macros.
+- **Generación de menú con IA** (Google Gemini 3.5 Flash) ajustada a tus objetivos calóricos y de macros.
 - **Selector de comidas por celda**: marca qué desayunos / pre-entrenos / principales / post-entrenos / cenas necesitas cada día. Las celdas desmarcadas se planifican como "Comer fuera" y no entran en la lista de la compra ni en los promedios nutricionales.
 - **Anti-repetición**: lleva un historial de las últimas 4 semanas y le pide a la IA que no repita recetas recientes.
 - **Lista de la compra automática**: agrega cantidades de los 5 días en 7 categorías (proteínas, lácteos, fruta, verdura, hidratos, grasas, otros) con check-list y exportación a PDF.
