@@ -171,7 +171,7 @@ export function MenuGeneratorScreen() {
           {/* Gemini status */}
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'rgba(245,243,238,0.55)' }}>
             <span style={{ width: 7, height: 7, borderRadius: 999, background: geminiOk ? '#7FCB4A' : '#F59E0B', flexShrink: 0 }} />
-            {geminiOk ? '⚡ Gemini 2.5 Flash · IA activa' : 'Banco de recetas base · 25 recetas'}
+            {geminiOk ? '⚡ Gemini 3.5 Flash · IA activa' : 'Banco de recetas base · 25 recetas'}
           </div>
 
           {/* Target week selector: planificar la siguiente sin borrar la actual */}
