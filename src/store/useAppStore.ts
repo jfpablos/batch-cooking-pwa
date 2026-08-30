@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AppState, WeeklyMenu, ShoppingList, BatchCookingGuide, StoredWeek, PantryItem, UserProfile, RecipePrefs, MealLog, DailyActionsDone } from '../types';
+import type { AppState, WeeklyMenu, ShoppingList, BatchCookingGuide, StoredWeek, PantryItem, UserProfile, RecipePrefs, EquipmentPrefs, MealLog, DailyActionsDone } from '../types';
 import { storageService } from '../services/storageService';
 import { STORAGE_KEYS } from '../utils/storageKeys';
 import { normalizeText } from '../utils/textUtils';
@@ -11,6 +11,10 @@ function loadProfile(): UserProfile {
 
 function loadPrefs(): RecipePrefs {
   return { favorites: [], banned: [], ...storageService.get<Partial<RecipePrefs>>(STORAGE_KEYS.RECIPE_PREFS) };
+}
+
+function loadEquipment(): EquipmentPrefs {
+  return { excluded: [], ...storageService.get<Partial<EquipmentPrefs>>(STORAGE_KEYS.EQUIPMENT) };
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -27,6 +31,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeTimer: null,
   profile: loadProfile(),
   recipePrefs: loadPrefs(),
+  equipmentPrefs: loadEquipment(),
   mealLog: storageService.get<MealLog>(STORAGE_KEYS.MEAL_LOG),
   dailyActionsDone: storageService.get<DailyActionsDone>(STORAGE_KEYS.DAILY_ACTIONS),
 
@@ -56,6 +61,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       pantryItems: storageService.get<PantryItem[]>(STORAGE_KEYS.PANTRY) ?? [],
       profile: loadProfile(),
       recipePrefs: loadPrefs(),
+      equipmentPrefs: loadEquipment(),
       mealLog: storageService.get<MealLog>(STORAGE_KEYS.MEAL_LOG),
       dailyActionsDone: storageService.get<DailyActionsDone>(STORAGE_KEYS.DAILY_ACTIONS),
     }),
@@ -107,6 +113,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     storageService.set(STORAGE_KEYS.RECIPE_PREFS, updated);
     set({ recipePrefs: updated });
+  },
+  toggleAppliance: (applianceId) => {
+    const prefs = get().equipmentPrefs;
+    const updated: EquipmentPrefs = {
+      excluded: prefs.excluded.includes(applianceId)
+        ? prefs.excluded.filter(id => id !== applianceId)
+        : [...prefs.excluded, applianceId],
+    };
+    storageService.set(STORAGE_KEYS.EQUIPMENT, updated);
+    set({ equipmentPrefs: updated });
   },
   toggleMealDone: (menuId, day, meal) => {
     const current = get().mealLog;

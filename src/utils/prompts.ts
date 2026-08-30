@@ -1,6 +1,7 @@
 import type { BaseRecipe, MealKey, MealSelection, RecipeCategory, RecipeScheduleEntry, UserProfile, VideoRecipe } from '../types';
 import { DAYS, MEAL_KEYS, DEFAULT_PROFILE, scaledMealTargets } from './constants';
 import type { MealTarget } from './constants';
+import { availableApplianceLabels, excludedApplianceLabels } from './equipment';
 
 // =============================================
 // ESTACIONALIDAD
@@ -136,7 +137,24 @@ export interface MenuPromptOptions {
   videoRecipes?: VideoRecipe[];
   favoriteRecipes?: string[];
   season?: Season;
+  /** ids de APPLIANCES no disponibles (estropeados, inexistentes o vetados) */
+  excludedEquipment?: string[];
 }
+
+export const buildEquipmentSection = (excludedIds: string[]): string => {
+  if (excludedIds.length === 0) return '';
+  const excluded = excludedApplianceLabels(excludedIds);
+  if (excluded.length === 0) return '';
+  const available = availableApplianceLabels(excludedIds);
+  return `
+ELECTRODOMÉSTICOS NO DISPONIBLES (OBLIGATORIO):
+El usuario NO puede usar: ${excluded.join(', ')}.
+- NINGUNA receta ni paso puede requerirlos (tampoco en la guía batch ni en el recalentado)
+- Sí dispone de: fuegos/vitrocerámica, sartenes y ollas normales${available.length > 0 ? `, ${available.join(', ')}` : ''}
+- Si un plato se haría normalmente con uno de los excluidos, adáptalo a un método disponible
+  (p. ej. air fryer, plancha o cazuela en lugar de horno) y ajusta tiempos y temperaturas
+`;
+};
 
 const buildFavoritesSection = (favorites: string[]): string => {
   if (favorites.length === 0) return '';
@@ -215,7 +233,7 @@ RECETAS A EVITAR ESTA SEMANA (usadas en las últimas 4 semanas o vetadas por el 
 ${excludeRecipeNames.length > 0
   ? excludeRecipeNames.map(r => `- ${r}`).join('\n')
   : '- (ninguna restricción esta semana — primera generación)'}
-${buildSeasonSection(opts.season)}${buildFavoritesSection(opts.favoriteRecipes ?? [])}${buildPantrySection(opts.pantryItems ?? [])}${
+${buildSeasonSection(opts.season)}${buildEquipmentSection(opts.excludedEquipment ?? [])}${buildFavoritesSection(opts.favoriteRecipes ?? [])}${buildPantrySection(opts.pantryItems ?? [])}${
   // El catálogo de recetas por vídeo es más preciso; los títulos solo son el fallback
   opts.videoRecipes?.length
     ? buildVideoRecipesSection(opts.videoRecipes)
@@ -311,14 +329,15 @@ export function generateSingleMealPrompt(params: {
   replacedName: string;
   pantryItems?: string[];
   season?: Season;
+  excludedEquipment?: string[];
 }): string {
-  const { category, targets, excludeNames, replacedName, pantryItems = [], season } = params;
+  const { category, targets, excludeNames, replacedName, pantryItems = [], season, excludedEquipment = [] } = params;
   return `
 Genera UNA receta nueva de tipo "${category}" para sustituir a "${replacedName}" en el menú de esta semana.
 
 TARGETS NUTRICIONALES DE ESTA COMIDA (aproxímate lo máximo posible):
 ~${targets.kcal} kcal | ${targets.protein} g proteína | ${targets.carbs} g carbohidratos | ${targets.fat} g grasa
-${buildSeasonSection(season)}
+${buildSeasonSection(season)}${buildEquipmentSection(excludedEquipment)}
 RECETAS A EVITAR (ya usadas, vetadas o presentes en el menú actual):
 ${excludeNames.length > 0 ? excludeNames.map(r => `- ${r}`).join('\n') : '- (ninguna)'}
 ${pantryItems.length > 0 ? `\nINGREDIENTES YA EN CASA que puedes aprovechar: ${pantryItems.join(', ')}\n` : ''}
@@ -372,7 +391,8 @@ const MEAL_LABELS: Record<MealKey, string> = {
 
 export const generateBatchGuidePrompt = (
   recipes: BaseRecipe[],
-  schedule: RecipeScheduleEntry[]
+  schedule: RecipeScheduleEntry[],
+  excludedEquipment: string[] = []
 ): string => {
   // Recetas compactas con su calendario de consumo
   const recipeBlocks = schedule.map(entry => {
@@ -411,7 +431,7 @@ ${recipeBlocks.join('\n\n')}
 
 CALENDARIO DE CONSUMO (el batch cooking se hace el DOMINGO anterior):
 ${calendarLines.join('\n')}
-
+${buildEquipmentSection(excludedEquipment)}
 INSTRUCCIONES PARA LA GUÍA DE COCINADO ("tasks"):
 - Máximo 15 tareas, ordenadas para minimizar el tiempo total (usa "parallelWith" para tareas simultáneas)
 - Cada tarea debe ser INFALIBLE: incluye en "steps" sub-pasos numerados con cantidades exactas,

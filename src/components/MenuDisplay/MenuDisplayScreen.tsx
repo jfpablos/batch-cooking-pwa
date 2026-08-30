@@ -113,10 +113,15 @@ export function MenuDisplayScreen() {
   const plannedCount = MEAL_KEYS.filter(k => !day.meals[k].isSkipped).length;
   const doneCount = MEAL_KEYS.filter(k => !day.meals[k].isSkipped && dayLog[k]).length;
 
-  // Punto del carrito solo si quedan ítems por comprar (la pestaña Compra
-  // muestra la lista de la próxima semana cuando existe)
-  const pendingShoppingItems = ((nextShoppingList ?? shoppingList)?.categories ?? [])
-    .reduce((acc, c) => acc + c.items.filter(i => !i.purchased && !i.inPantry).length, 0);
+  // Punto del carrito solo si quedan ítems por comprar en cualquiera de las
+  // dos listas (la pestaña Compra permite conmutar entre ambas semanas)
+  const pendingShoppingItems = [shoppingList, nextShoppingList].reduce(
+    (acc, list) =>
+      acc + (list?.categories ?? []).reduce(
+        (a, c) => a + c.items.filter(i => !i.purchased && !i.inPantry).length, 0
+      ),
+    0
+  );
 
   return (
     <>

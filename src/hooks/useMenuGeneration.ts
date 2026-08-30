@@ -66,7 +66,8 @@ export function useMenuGeneration() {
       // Semana y año de la semana OBJETIVO (esta o la siguiente), no de hoy
       const weekStart = targetWeekStartISO(target);
       const { weekNumber, year } = weekAndYearFor(weekStart);
-      const { pantryItems, recipePrefs, profile } = useAppStore.getState();
+      const { pantryItems, recipePrefs, equipmentPrefs, profile } = useAppStore.getState();
+      const excludedEquipment = equipmentPrefs.excluded;
       // Anti-repetición (últimas 4 semanas) + recetas vetadas por el usuario
       const excludeNames = Array.from(new Set([...getExcludeNames(), ...recipePrefs.banned]));
       const pantryNames = pantryItems.map(p => p.name);
@@ -105,6 +106,7 @@ export function useMenuGeneration() {
               inspirationVideos,
               favoriteRecipes,
               season: getCurrentSeason(),
+              excludedEquipment,
             },
             profile
           );
@@ -128,7 +130,7 @@ export function useMenuGeneration() {
             const usedRecipes = weeklyMenu.recipes.filter(r =>
               batchSchedule.some(s => s.recipeName === r.name)
             );
-            const guideResponse = await geminiService.generateBatchGuide(usedRecipes, batchSchedule);
+            const guideResponse = await geminiService.generateBatchGuide(usedRecipes, batchSchedule, excludedEquipment);
             guide = {
               id: `guide-${weeklyMenu.id}`,
               menuId: weeklyMenu.id,
@@ -156,12 +158,12 @@ export function useMenuGeneration() {
           setGenerating(true, 'Gemini no disponible, usando banco de recetas...', 20);
           await new Promise(r => setTimeout(r, 1000));
           guide = null;
-          weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year, selection, weekStart);
+          weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year, selection, weekStart, excludedEquipment);
         }
       } else {
         setGenerating(true, 'Usando banco de recetas base (sin API key Gemini)...', 20);
         await new Promise(r => setTimeout(r, 800));
-        weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year, selection, weekStart);
+        weeklyMenu = menuService.createWeeklyMenuFromBase(excludeNames, weekNumber, year, selection, weekStart, excludedEquipment);
       }
 
       setGenerating(true, STEPS[3], 80);

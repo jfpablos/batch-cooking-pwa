@@ -9,6 +9,7 @@ import { STORAGE_KEYS } from '../utils/storageKeys';
 import { useHistoryRotation } from './useHistoryRotation';
 import { MEAL_CATEGORY, scaledMealTargets } from '../utils/constants';
 import { getCurrentSeason } from '../utils/prompts';
+import { recipeUsesExcludedAppliance } from '../utils/equipment';
 import { normalizeText } from '../utils/textUtils';
 import type { BaseRecipe, DayName, MealKey } from '../types';
 
@@ -29,7 +30,7 @@ export function useMealSwap(slot: 'current' | 'next' = 'current') {
 
   async function swapMeal(day: DayName, meal: MealKey): Promise<void> {
     const state = useAppStore.getState();
-    const { profile, pantryItems, recipePrefs, showToast } = state;
+    const { profile, pantryItems, recipePrefs, equipmentPrefs, showToast } = state;
     const menu = slot === 'next' ? state.nextMenu : state.currentMenu;
     const shoppingList = slot === 'next' ? state.nextShoppingList : state.shoppingList;
     const batchGuide = slot === 'next' ? state.nextBatchGuide : state.batchGuide;
@@ -66,6 +67,7 @@ export function useMealSwap(slot: 'current' | 'next' = 'current') {
             replacedName: currentMeal.recipeName,
             pantryItems: pantryItems.map(p => p.name),
             season: getCurrentSeason(),
+            excludedEquipment: equipmentPrefs.excluded,
           });
           recipe = menuService.recipeFromGemini(gemini);
         } catch (e) {
@@ -74,12 +76,15 @@ export function useMealSwap(slot: 'current' | 'next' = 'current') {
       }
 
       if (!recipe) {
+        // Sin los electrodomésticos excluidos; si eso vacía la categoría,
+        // mejor una receta con ese electrodoméstico que dejar el swap sin opciones
+        const byCategory = recipeService.getByCategory(category);
+        const equipped = byCategory.filter(r => !recipeUsesExcludedAppliance(r, equipmentPrefs.excluded));
+        const basePool = equipped.length > 0 ? equipped : byCategory;
         const excluded = new Set(excludeNames.map(normalizeText));
-        const candidates = recipeService
-          .getByCategory(category)
-          .filter(r => !excluded.has(normalizeText(r.name)));
+        const candidates = basePool.filter(r => !excluded.has(normalizeText(r.name)));
         const banned = new Set(recipePrefs.banned.map(normalizeText));
-        const pool = candidates.length > 0 ? candidates : recipeService.getByCategory(category)
+        const pool = candidates.length > 0 ? candidates : basePool
           .filter(r =>
             normalizeText(r.name) !== normalizeText(currentMeal.recipeName) &&
             !banned.has(normalizeText(r.name))
