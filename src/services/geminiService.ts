@@ -162,9 +162,10 @@ export class GeminiService {
    */
   async generateBatchGuide(
     recipes: BaseRecipe[],
-    schedule: RecipeScheduleEntry[]
+    schedule: RecipeScheduleEntry[],
+    excludedEquipment: string[] = []
   ): Promise<GeneratedGuideResponse> {
-    const prompt = generateBatchGuidePrompt(recipes, schedule);
+    const prompt = generateBatchGuidePrompt(recipes, schedule, excludedEquipment);
     const recipeNames = schedule.map(s => s.recipeName);
 
     let lastError: Error | null = null;
@@ -224,6 +225,7 @@ export class GeminiService {
     replacedName: string;
     pantryItems?: string[];
     season?: Season;
+    excludedEquipment?: string[];
   }): Promise<GeminiRecipe> {
     const prompt = generateSingleMealPrompt(params);
     let lastError: Error | null = null;

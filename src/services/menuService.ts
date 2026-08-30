@@ -15,6 +15,7 @@ import type {
 } from '../types';
 import { recipeService } from './recipeService';
 import { buildFullSelection } from '../utils/prompts';
+import { recipeUsesExcludedAppliance } from '../utils/equipment';
 import { normalizeText } from '../utils/textUtils';
 import { DAYS, MEAL_KEYS, MEAL_CATEGORY } from '../utils/constants';
 import { reorderForShelfLife } from '../utils/shelfLifeOrder';
@@ -168,15 +169,24 @@ export const menuService = {
     weekNumber: number,
     year: number,
     selection: MealSelection = buildFullSelection(),
-    weekStart?: string
+    weekStart?: string,
+    excludedEquipment: string[] = []
   ): WeeklyMenu {
     const excludeSet = new Set(excludeNames.map(n => n.toLowerCase()));
     const usedIds = new Set<string>();
 
     const getRecipe = (category: RecipeCategory): BaseRecipe => {
-      const available = recipeService
+      // Sin los electrodomésticos excluidos por el usuario (horno estropeado...)
+      const equipped = recipeService
         .getByCategory(category)
-        .filter(r => !excludeSet.has(r.name.toLowerCase()) && !usedIds.has(r.id));
+        .filter(r => !recipeUsesExcludedAppliance(r, excludedEquipment));
+      // Si el filtro deja la categoría vacía, mejor una receta con ese
+      // electrodoméstico que ninguna comida
+      const pool = equipped.length > 0 ? equipped : recipeService.getByCategory(category);
+
+      const available = pool.filter(
+        r => !excludeSet.has(r.name.toLowerCase()) && !usedIds.has(r.id)
+      );
 
       if (available.length > 0) {
         const r = available[Math.floor(Math.random() * available.length)];
@@ -184,8 +194,7 @@ export const menuService = {
         return r;
       }
       // Fallback: use any recipe of that category
-      const all = recipeService.getByCategory(category);
-      const r = all[Math.floor(Math.random() * all.length)];
+      const r = pool[Math.floor(Math.random() * pool.length)];
       usedIds.add(r.id);
       return r;
     };

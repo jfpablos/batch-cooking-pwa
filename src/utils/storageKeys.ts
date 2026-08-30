@@ -14,6 +14,7 @@ export const STORAGE_KEYS = {
   VIDEO_RECIPES: 'batchfit:video_recipes',
   PROFILE: 'batchfit:profile',
   RECIPE_PREFS: 'batchfit:recipe_prefs',
+  EQUIPMENT: 'batchfit:equipment',
   MEAL_LOG: 'batchfit:meal_log',
   DAILY_ACTIONS: 'batchfit:daily_actions_done',
 } as const;

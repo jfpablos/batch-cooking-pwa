@@ -334,6 +334,15 @@ export interface RecipePrefs {
 }
 
 // =============================================
+// EQUIPAMIENTO DE COCINA (electrodomésticos excluidos)
+// =============================================
+
+export interface EquipmentPrefs {
+  /** ids de APPLIANCES que el usuario no puede o no quiere usar */
+  excluded: string[];
+}
+
+// =============================================
 // REGISTRO DE COMIDAS CONSUMIDAS (adherencia)
 // =============================================
 
@@ -404,6 +413,7 @@ export interface AppState {
   activeTimer: ActiveTimer | null;
   profile: UserProfile;
   recipePrefs: RecipePrefs;
+  equipmentPrefs: EquipmentPrefs;
   mealLog: MealLog | null;
   dailyActionsDone: DailyActionsDone | null;
 
@@ -434,6 +444,7 @@ export interface AppState {
   setProfile: (profile: UserProfile) => void;
   toggleFavorite: (recipeName: string) => void;
   toggleBanned: (recipeName: string) => void;
+  toggleAppliance: (applianceId: string) => void;
   toggleMealDone: (menuId: string, day: DayName, meal: MealKey) => void;
   toggleDailyAction: (menuId: string, actionId: string) => void;
   startTimer: (taskOrder: number, seconds: number) => void;

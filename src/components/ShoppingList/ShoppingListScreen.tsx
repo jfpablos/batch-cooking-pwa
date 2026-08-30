@@ -6,7 +6,11 @@ import { useAppStore } from '../../store/useAppStore';
 import { shoppingListService } from '../../services/shoppingListService';
 import { storageService } from '../../services/storageService';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
-import type { ShoppingCategoryName } from '../../types';
+import type { ShoppingCategoryName, ShoppingList } from '../../types';
+
+// ¿Quedan ítems por comprar (sin contar los que ya hay en casa)?
+const hasPendingItems = (list: ShoppingList): boolean =>
+  list.categories.some(c => c.items.some(i => !i.purchased && !i.inPantry));
 
 export function ShoppingListScreen() {
   const currentList = useAppStore(s => s.shoppingList);
@@ -19,10 +23,17 @@ export function ShoppingListScreen() {
   const showToast = useAppStore(s => s.showToast);
   const [copying, setCopying] = useState(false);
 
-  // La compra sirve para el batch del domingo: si hay menú planificado para
-  // la semana siguiente, se enseña SU lista (la del actual ya se compró)
-  const isNext = !!nextList;
-  const shoppingList = nextList ?? currentList;
+  // Semana visible cuando hay dos listas. Por defecto, la de esta semana si
+  // aún le quedan cosas por comprar (el batch del domingo la necesita);
+  // completada, se pasa a la de la próxima semana. Siempre conmutables.
+  const [view, setView] = useState<'current' | 'next'>(() => {
+    if (!currentList) return 'next';
+    if (!nextList) return 'current';
+    return hasPendingItems(currentList) ? 'current' : 'next';
+  });
+  // Una lista puede desaparecer con la pantalla montada (promoción next→current)
+  const isNext = nextList ? (view === 'next' || !currentList) : false;
+  const shoppingList = isNext ? nextList : (currentList ?? nextList);
   const menuForLabel = isNext ? nextMenu : currentMenu;
 
   if (!shoppingList) {
@@ -99,9 +110,43 @@ export function ShoppingListScreen() {
 
         {/* ── Header ── */}
         <div className="eyebrow">
-          Lista · S{menuForLabel?.weekNumber ?? ''}{isNext ? ' · próxima semana' : ''}
+          Lista · S{menuForLabel?.weekNumber ?? ''}{isNext ? ' · próxima semana' : ' · esta semana'}
         </div>
         <div className="display" style={{ fontSize: 26, marginTop: 2 }}>Compra del domingo</div>
+
+        {/* ── Week selector (lista actual vs planificada) ── */}
+        {currentList && nextList && (
+          <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+            {([
+              { key: 'current', label: `Esta semana${currentMenu ? ` · S${currentMenu.weekNumber}` : ''}`, pending: hasPendingItems(currentList) },
+              { key: 'next', label: `Próxima${nextMenu ? ` · S${nextMenu.weekNumber}` : ''}`, pending: hasPendingItems(nextList) },
+            ] as const).map(t => {
+              const active = isNext ? t.key === 'next' : t.key === 'current';
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setView(t.key)}
+                  aria-pressed={active}
+                  style={{
+                    all: 'unset' as const, cursor: 'pointer', flex: 1, minHeight: 44,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    borderRadius: 12, boxSizing: 'border-box' as const,
+                    background: active ? 'var(--ink)' : 'var(--card)',
+                    color: active ? 'var(--cream)' : 'var(--ink)',
+                    border: '1px solid ' + (active ? 'var(--ink)' : 'var(--line)'),
+                    fontFamily: 'var(--ff-display)', fontSize: 13, fontWeight: 700,
+                    transition: 'all .15s',
+                  }}
+                >
+                  {t.label}
+                  {t.pending && (
+                    <span style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--orange)', flexShrink: 0 }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Progress card ── */}
         <div style={{ marginTop: 14, padding: 14, borderRadius: 16, background: 'var(--card)', border: '1px solid var(--line)' }}>

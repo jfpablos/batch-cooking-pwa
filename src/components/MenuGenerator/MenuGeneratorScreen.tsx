@@ -10,6 +10,7 @@ import { geminiService } from '../../services/geminiService';
 import { buildFullSelection, countSelected } from '../../utils/prompts';
 import { MealSelector } from './MealSelector';
 import { PantrySection } from './PantrySection';
+import { EquipmentSection } from './EquipmentSection';
 import { ProfileSection } from './ProfileSection';
 import type { MealSelection } from '../../types';
 
@@ -245,6 +246,9 @@ export function MenuGeneratorScreen() {
 
         {/* ── Pantry: ingredientes a gastar ── */}
         <PantrySection />
+
+        {/* ── Equipamiento: electrodomésticos excluidos ── */}
+        <EquipmentSection />
 
         {/* ── Generation progress detail ── */}
         {isGenerating && (
