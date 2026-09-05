@@ -8,10 +8,37 @@ import type {
 import { buildFullSelection } from './prompts';
 import { findBestNameMatch } from './textUtils';
 import { DAYS, MEAL_KEYS } from './constants';
+import { applianceAlternative, findExcludedApplianceMentions } from './equipment';
+
+/** Textos de una tarea de la guía que describen cómo se cocina (no el recalentado). */
+function taskTexts(t: Record<string, unknown>): (string | undefined)[] {
+  const steps = Array.isArray(t.steps) ? (t.steps as unknown[]).filter((s): s is string => typeof s === 'string') : [];
+  return [t.title as string, t.description as string, t.equipment as string, t.seasoning as string, ...steps];
+}
+
+/**
+ * Errores por uso de electrodomésticos excluidos en las tareas de una guía
+ * (la de la primera llamada o la detallada). Se devuelven al modelo en el
+ * reintento para que adapte la técnica.
+ */
+function equipmentErrorsInTasks(tasks: unknown, excludedEquipment: string[]): string[] {
+  if (excludedEquipment.length === 0 || !Array.isArray(tasks)) return [];
+  const errors: string[] = [];
+  for (const task of tasks as unknown[]) {
+    if (!task || typeof task !== 'object') continue;
+    const t = task as Record<string, unknown>;
+    const found = findExcludedApplianceMentions(taskTexts(t), excludedEquipment);
+    if (found.length > 0) {
+      errors.push(`Tarea "${t.title}" usa ${found.join(' y ')} — está EXCLUIDO, adapta la técnica a un método disponible`);
+    }
+  }
+  return errors;
+}
 
 export function validateMenuResponse(
   data: unknown,
-  selection: MealSelection = buildFullSelection()
+  selection: MealSelection = buildFullSelection(),
+  excludedEquipment: string[] = []
 ): {
   valid: boolean;
   errors: string[];
@@ -100,18 +127,55 @@ export function validateMenuResponse(
           }
         }
       }
+      // Electrodomésticos excluidos en los pasos de cocinado (el recalentado
+      // de storage.instructions no cuenta, igual que en recipeUsesExcludedAppliance)
+      if (excludedEquipment.length > 0) {
+        const steps = Array.isArray(r.steps) ? (r.steps as unknown[]).filter((s): s is string => typeof s === 'string') : [];
+        const found = findExcludedApplianceMentions([...steps, r.batchNotes as string], excludedEquipment);
+        if (found.length > 0) {
+          errors.push(`Receta "${r.name}" usa ${found.join(' y ')} — está EXCLUIDO, cámbiala o adapta la técnica`);
+        }
+      }
     }
   }
 
   // Check batchCookingGuide
   if (!obj.batchCookingGuide || typeof obj.batchCookingGuide !== 'object') {
     errors.push('Falta batchCookingGuide');
+  } else {
+    errors.push(...equipmentErrorsInTasks((obj.batchCookingGuide as Record<string, unknown>).tasks, excludedEquipment));
   }
 
   return { valid: errors.length === 0, errors };
 }
 
-export function validateGuideResponse(data: unknown): {
+/**
+ * Último recurso cuando la IA insiste en un electrodoméstico excluido tras los
+ * reintentos: la tarea se marca para adaptar y el campo "equipment" deja de
+ * prescribir el aparato. Nunca se deja la instrucción intacta.
+ */
+export function stripExcludedEquipment<T extends { title: string; description: string; equipment?: string; steps?: string[]; seasoning?: string }>(
+  tasks: T[],
+  excludedEquipment: string[]
+): T[] {
+  if (excludedEquipment.length === 0) return tasks;
+  return tasks.map(t => {
+    const found = findExcludedApplianceMentions(taskTexts(t as unknown as Record<string, unknown>), excludedEquipment);
+    if (found.length === 0) return t;
+    const alternatives = found.map(f => `sin ${f.toLowerCase()}: ${applianceAlternative(f)}`).join('; ');
+    const warning = `⚠ Adaptar (${alternatives}).`;
+    return {
+      ...t,
+      description: t.description.startsWith('⚠') ? t.description : `${warning} ${t.description}`,
+      equipment: t.equipment ? `${warning} ${t.equipment}` : t.equipment,
+    };
+  });
+}
+
+export function validateGuideResponse(
+  data: unknown,
+  excludedEquipment: string[] = []
+): {
   valid: boolean;
   errors: string[];
 } {
@@ -136,6 +200,7 @@ export function validateGuideResponse(data: unknown): {
         errors.push(`Tarea "${t.title}" sin duración numérica`);
       }
     }
+    errors.push(...equipmentErrorsInTasks(obj.tasks, excludedEquipment));
   }
 
   if (!Array.isArray(obj.conservationPlan)) {

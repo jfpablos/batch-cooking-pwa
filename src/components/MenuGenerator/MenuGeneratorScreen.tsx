@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Sparkles, Calendar, CalendarClock, RotateCcw, Check, History, AlertCircle } from 'lucide-react';
+import { Sparkles, Calendar, CalendarClock, RotateCcw, Check, History, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useMenuGeneration } from '../../hooks/useMenuGeneration';
 import { formatDateTime, targetWeekStartISO, weekAndYearFor } from '../../utils/dateUtils';
 import { addDays, getWeekStart } from '../../utils/dailyActions';
 import { storageService } from '../../services/storageService';
 import { STORAGE_KEYS } from '../../utils/storageKeys';
-import { geminiService } from '../../services/geminiService';
+import { geminiService, getLastModelUsed } from '../../services/geminiService';
+import { activateNextMenu, hasWeekCollision } from '../../services/promotionService';
 import { buildFullSelection, countSelected } from '../../utils/prompts';
 import { MealSelector } from './MealSelector';
 import { PantrySection } from './PantrySection';
@@ -35,18 +36,28 @@ export function MenuGeneratorScreen() {
   const nextMenu = useAppStore(s => s.nextMenu);
   const menuHistory = useAppStore(s => s.menuHistory);
   const profile = useAppStore(s => s.profile);
+  const showToast = useAppStore(s => s.showToast);
   const { generateMenu } = useMenuGeneration();
   const lastGenDate = storageService.get<string>(STORAGE_KEYS.LAST_GEN_DATE);
   const geminiOk = geminiService.isConfigured();
+  const modelUsed = getLastModelUsed();
   const [creepProgress, setCreepProgress] = useState(0);
 
   // Semana objetivo de la generación. Por defecto, si el menú actual ya cubre
-  // la semana en curso, se planifica la siguiente (así la compra da tiempo
-  // antes del domingo de cocinado).
+  // la semana en foco (L-V: esta; sáb/dom: la que empieza el lunes), se
+  // planifica la siguiente (así la compra da tiempo antes del domingo).
   const [target, setTarget] = useState<'current' | 'next'>(() =>
     currentMenu && getWeekStart(currentMenu) >= targetWeekStartISO('current') ? 'next' : 'current'
   );
   const { weekNumber, year } = weekAndYearFor(targetWeekStartISO(target));
+  const weekLabel = (t: 'current' | 'next') => `S${weekAndYearFor(targetWeekStartISO(t)).weekNumber}`;
+
+  // Dos menús para la misma semana (regenerado en fin de semana con la
+  // versión anterior): no se borra nada solo, el usuario decide.
+  const collision = hasWeekCollision(currentMenu, nextMenu);
+  const handleActivatePlanned = () => {
+    if (activateNextMenu()) showToast('Menú planificado activado como semana actual', 'success');
+  };
 
   const [selection, setSelection] = useState<MealSelection>(() => {
     const stored = storageService.get<MealSelection>(STORAGE_KEYS.MEAL_SELECTION);
@@ -172,7 +183,7 @@ export function MenuGeneratorScreen() {
           {/* Gemini status */}
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'rgba(245,243,238,0.55)' }}>
             <span style={{ width: 7, height: 7, borderRadius: 999, background: geminiOk ? '#7FCB4A' : '#F59E0B', flexShrink: 0 }} />
-            {geminiOk ? '⚡ Gemini 3.5 Flash · IA activa' : 'Banco de recetas base · 25 recetas'}
+            {geminiOk ? `⚡ Gemini · IA activa${modelUsed ? ` · ${modelUsed}` : ''}` : 'Banco de recetas base · 25 recetas'}
           </div>
 
           {/* Target week selector: planificar la siguiente sin borrar la actual */}
@@ -181,8 +192,8 @@ export function MenuGeneratorScreen() {
             background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
           }}>
             {([
-              { key: 'current', label: 'Esta semana' },
-              { key: 'next', label: 'Próxima semana' },
+              { key: 'current', label: `Esta semana · ${weekLabel('current')}` },
+              { key: 'next', label: `Próxima · ${weekLabel('next')}` },
             ] as const).map(t => (
               <button
                 key={t.key}
@@ -237,6 +248,31 @@ export function MenuGeneratorScreen() {
             )}
           </button>
         </div>
+
+        {/* ── Colisión: dos menús para la misma semana ── */}
+        {collision && currentMenu && nextMenu && !isGenerating && (
+          <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 14, background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.35)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <AlertTriangle size={16} style={{ color: '#B45309', flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, lineHeight: 1.45, margin: 0, color: 'var(--ink)' }}>
+                Tienes dos menús para la <strong>S{currentMenu.weekNumber}</strong>: el activo (generado{' '}
+                {formatDateTime(currentMenu.generatedAt)}) y uno planificado (generado {formatDateTime(nextMenu.generatedAt)}).
+                Regenera «Esta semana» para sustituir ambos, o activa el planificado.
+              </p>
+            </div>
+            <button
+              onClick={handleActivatePlanned}
+              style={{
+                marginTop: 10, minHeight: 44, width: '100%', background: 'transparent',
+                border: '1px solid rgba(180,83,9,0.45)', borderRadius: 10, color: '#B45309',
+                fontFamily: 'var(--ff-display)', fontWeight: 700, fontSize: 13,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, cursor: 'pointer',
+              }}
+            >
+              <CalendarClock size={14} strokeWidth={2} /> Activar el planificado (S{nextMenu.weekNumber})
+            </button>
+          </div>
+        )}
 
         {/* ── Day/meal selector ── */}
         <MealSelector selection={selection} onChange={updateSelection} />
@@ -355,8 +391,8 @@ export function MenuGeneratorScreen() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12.5, fontWeight: 600 }}>Próxima semana · S{nextMenu.weekNumber}</div>
               <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                Generado {formatDateTime(nextMenu.generatedAt)} · se activa el domingo{' '}
-                {new Date(addDays(getWeekStart(nextMenu), -1) + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                Generado {formatDateTime(nextMenu.generatedAt)} · se activa el sábado{' '}
+                {new Date(addDays(getWeekStart(nextMenu), -2) + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
               </div>
             </div>
           </div>
@@ -366,9 +402,9 @@ export function MenuGeneratorScreen() {
         <div style={{ marginTop: 18, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 16 }}>
           <div className="eyebrow" style={{ fontSize: 10, marginBottom: 10 }}>Cómo funciona</div>
           {[
-            'Pulsa "Generar semana" el domingo por la tarde',
+            'Genera la "Próxima semana" entre semana: se activa sola el sábado',
             'Revisa las recetas día a día en "Mi menú"',
-            'Haz la compra con la lista agrupada',
+            'Haz la compra el sábado con la lista agrupada',
             'Cocina todo el domingo siguiendo la Guía Batch',
           ].map((text, i) => (
             <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', paddingTop: i ? 10 : 0, borderTop: i ? '1px dashed var(--line-2)' : 'none' }}>

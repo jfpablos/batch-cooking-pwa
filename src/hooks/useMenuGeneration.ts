@@ -7,6 +7,8 @@ import { youtubeService } from '../services/youtubeService';
 import { videoRecipeService } from '../services/videoRecipeService';
 import { STORAGE_KEYS } from '../utils/storageKeys';
 import { targetWeekStartISO, weekAndYearFor } from '../utils/dateUtils';
+import { getWeekStart } from '../utils/dailyActions';
+import { promoteNextMenuIfDue } from '../services/promotionService';
 import { useHistoryRotation } from './useHistoryRotation';
 import { buildFullSelection, getCurrentSeason } from '../utils/prompts';
 import { buildBasicConservationPlan } from '../utils/conservationFallback';
@@ -63,6 +65,11 @@ export function useMenuGeneration() {
     setError(null);
 
     try {
+      // Si la app llevaba abierta desde el viernes, el planificado puede
+      // haber pasado a ser "esta semana" sin que nadie lo promocionara aún:
+      // se normalizan los slots antes de decidir dónde escribir.
+      promoteNextMenuIfDue();
+
       // Semana y año de la semana OBJETIVO (esta o la siguiente), no de hoy
       const weekStart = targetWeekStartISO(target);
       const { weekNumber, year } = weekAndYearFor(weekStart);
@@ -142,6 +149,8 @@ export function useMenuGeneration() {
             };
           } catch (guideError) {
             console.warn('[MenuGen] Guía detallada falló, usando guía básica del menú:', guideError);
+            // (las tareas ya vienen saneadas de electrodomésticos excluidos
+            // por geminiService)
             guide = {
               id: `guide-${weeklyMenu.id}`,
               menuId: weeklyMenu.id,
@@ -189,6 +198,7 @@ export function useMenuGeneration() {
         storageService.set(STORAGE_KEYS.SHOPPING_LIST, shoppingList);
         storageService.set(STORAGE_KEYS.LAST_GEN_DATE, new Date().toISOString());
         if (guide) storageService.set(STORAGE_KEYS.BATCH_GUIDE, guide);
+        else storageService.remove(STORAGE_KEYS.BATCH_GUIDE);
 
         // Nueva semana: progreso de la guía batch y temporizador a cero
         storageService.remove(STORAGE_KEYS.BATCH_PROGRESS);
@@ -196,7 +206,20 @@ export function useMenuGeneration() {
 
         setCurrentMenu(weeklyMenu);
         setShoppingList(shoppingList);
-        if (guide) setBatchGuide(guide);
+        setBatchGuide(guide);
+
+        // Un planificado de esta misma semana (o anterior) queda superado por
+        // esta regeneración explícita: es la única limpieza automática del
+        // slot next, y la pide el propio usuario al pulsar "Regenerar".
+        const { nextMenu } = useAppStore.getState();
+        if (nextMenu && getWeekStart(nextMenu) <= weekStart) {
+          storageService.remove(STORAGE_KEYS.NEXT_MENU);
+          storageService.remove(STORAGE_KEYS.NEXT_SHOPPING_LIST);
+          storageService.remove(STORAGE_KEYS.NEXT_BATCH_GUIDE);
+          setNextMenu(null);
+          setNextShoppingList(null);
+          setNextBatchGuide(null);
+        }
       }
       addMenuToHistory(weeklyMenu);
 

@@ -57,6 +57,19 @@ npx supabase secrets set YOUTUBE_PLAYLIST_ID=PLbo-TdcEj2O95G6vwvMz4ukm8hmkHHe09
 # (denegar por defecto: si no, cualquier cuenta de Google quemaría tu cuota).
 npx supabase secrets set ALLOWED_EMAILS=jfpablos@gmail.com
 
+# OPCIONAL — modelo Gemini. Lo decide el servidor, así que se cambia sin
+# redesplegar la app. Por defecto: gemini-3.5-flash con fallback automático a
+# gemini-3.5-flash-lite y gemini-2.5-flash cuando el principal responde 404
+# (modelo retirado/inexistente), 429 (cuota gratuita agotada) o 503.
+# Comprueba en AI Studio (https://aistudio.google.com → Dashboard → Rate limits)
+# qué modelos entran en la cuota gratuita de tu cuenta antes de cambiarlo.
+npx supabase secrets set GEMINI_MODEL=gemini-3.5-flash
+npx supabase secrets set GEMINI_FALLBACK_MODELS=gemini-3.5-flash-lite,gemini-2.5-flash
+# La cabecera de respuesta x-batchfit-model (y los logs de la función) dicen
+# qué modelo sirvió cada petición; la pantalla Generar lo muestra tras la
+# primera llamada. Un modelo fuera del free tier devuelve 429 y el proxy cae
+# al siguiente de la lista.
+
 # Desplegar las funciones
 npx supabase functions deploy gemini-proxy
 npx supabase functions deploy youtube-playlist

@@ -25,27 +25,34 @@ interface NormTask {
   equipment?: string;
 }
 
-// Fallback guide for menus generated from the base recipe bank (no AI batch guide).
-const DEFAULT_TASKS: NormTask[] = [
-  { order: 1, title: 'Lavar y trocear todas las verduras', dur: 15, parallel: null,
-    note: 'Brócoli, espárragos, espinacas, cebolla, judías. Reservar en bols.' },
-  { order: 2, title: 'Pesar y dosificar arroces y cereales', dur: 10, parallel: null,
-    note: 'Tener 750 g arroz integral y 1 kg arroz blanco listos para cocer.' },
-  { order: 3, title: 'Cocer arroz integral (750 g)', dur: 25, parallel: 4,
-    note: 'Olla 1, agua salada. Mientras, avanza con el horno.' },
-  { order: 4, title: 'Hornear proteínas + boniatos', dur: 35, parallel: 3,
-    note: '200 °C. Bandejas separadas, papel de horno.' },
-  { order: 5, title: 'Saltear pechugas de pollo', dur: 20, parallel: null,
-    note: 'Tandas de 500 g. Salpimentar. Reservar parte para platos con salsa.' },
-  { order: 6, title: 'Plancha de pavo (600 g)', dur: 14, parallel: null,
-    note: 'Fuego alto, 2 min/lado. Reservar para martes y jueves.' },
-  { order: 7, title: 'Hervir huevos (8 ud)', dur: 12, parallel: 8,
-    note: '10 min desde ebullición. Pelar bajo agua fría.' },
-  { order: 8, title: 'Cocer arroz blanco (1 kg)', dur: 18, parallel: 7,
-    note: 'Para post-entreno y pre-entreno de la semana.' },
-  { order: 9, title: 'Repartir en tuppers', dur: 11, parallel: null,
-    note: 'Etiquetar L–V por comida. Salsas en bote aparte.' },
-];
+// Fallback guide for menus generated from the base recipe bank (no AI batch
+// guide). Sin horno disponible, las proteínas y boniatos van a sartén/plancha.
+function defaultTasks(excludedEquipment: string[]): NormTask[] {
+  const ovenOut = excludedEquipment.includes('horno');
+  return [
+    { order: 1, title: 'Lavar y trocear todas las verduras', dur: 15, parallel: null,
+      note: 'Brócoli, espárragos, espinacas, cebolla, judías. Reservar en bols.' },
+    { order: 2, title: 'Pesar y dosificar arroces y cereales', dur: 10, parallel: null,
+      note: 'Tener 750 g arroz integral y 1 kg arroz blanco listos para cocer.' },
+    { order: 3, title: 'Cocer arroz integral (750 g)', dur: 25, parallel: 4,
+      note: ovenOut ? 'Olla 1, agua salada. Mientras, avanza con la sartén.' : 'Olla 1, agua salada. Mientras, avanza con el horno.' },
+    ovenOut
+      ? { order: 4, title: 'Proteínas + boniatos en sartén', dur: 35, parallel: 3,
+          note: 'Boniato en dados, sartén tapada a fuego medio 15 min. Proteínas a la plancha en tandas.' }
+      : { order: 4, title: 'Hornear proteínas + boniatos', dur: 35, parallel: 3,
+          note: '200 °C. Bandejas separadas, papel de horno.' },
+    { order: 5, title: 'Saltear pechugas de pollo', dur: 20, parallel: null,
+      note: 'Tandas de 500 g. Salpimentar. Reservar parte para platos con salsa.' },
+    { order: 6, title: 'Plancha de pavo (600 g)', dur: 14, parallel: null,
+      note: 'Fuego alto, 2 min/lado. Reservar para martes y jueves.' },
+    { order: 7, title: 'Hervir huevos (8 ud)', dur: 12, parallel: 8,
+      note: '10 min desde ebullición. Pelar bajo agua fría.' },
+    { order: 8, title: 'Cocer arroz blanco (1 kg)', dur: 18, parallel: 7,
+      note: 'Para post-entreno y pre-entreno de la semana.' },
+    { order: 9, title: 'Repartir en tuppers', dur: 11, parallel: null,
+      note: 'Etiquetar L–V por comida. Salsas en bote aparte.' },
+  ];
+}
 
 function loadProgress(): BatchProgress | null {
   const menu = useAppStore.getState().currentMenu;
@@ -56,6 +63,7 @@ function loadProgress(): BatchProgress | null {
 export function BatchGuideScreen() {
   const currentMenu = useAppStore(s => s.currentMenu);
   const batchGuide = useAppStore(s => s.batchGuide);
+  const excludedEquipment = useAppStore(s => s.equipmentPrefs.excluded);
   const setActiveTab = useAppStore(s => s.setActiveTab);
   const startTimer = useAppStore(s => s.startTimer);
   const pauseTimer = useAppStore(s => s.pauseTimer);
@@ -117,7 +125,7 @@ export function BatchGuideScreen() {
     steps: t.steps,
     seasoning: t.seasoning,
     equipment: t.equipment,
-  })) : DEFAULT_TASKS).slice().sort((a, b) => a.order - b.order);
+  })) : defaultTasks(excludedEquipment)).slice().sort((a, b) => a.order - b.order);
 
   // Plan de conservación: el detallado de la IA si existe; si no, derivado
   // de los campos storage de las recetas del menú actual. Normalizado para

@@ -5,6 +5,8 @@ export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  // El cliente lee qué modelo Gemini sirvió la respuesta (gemini-proxy)
+  'Access-Control-Expose-Headers': 'x-batchfit-model',
 };
 
 export function json(body: unknown, status = 200): Response {

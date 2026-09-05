@@ -145,12 +145,29 @@ export function getWeekDates(menu: MinimalMenu): Record<string, string> {
   return out;
 }
 
-/** ¿El menú está vigente en esa fecha? Vigencia: domingo de cocinado .. viernes. */
+/**
+ * ¿El menú está vigente en esa fecha? Vigencia: sábado (compra; el menú
+ * planificado se activa ese día) .. domingo de cocinado .. viernes. El sábado
+ * nunca hay acciones (nada cae en sábado en deriveWeekActions), así que
+ * incluirlo no altera los recordatorios; solo evita tratar como "de otra
+ * semana" el menú recién activado.
+ */
 export function isMenuActiveOn(menu: MinimalMenu, dateISO: string): boolean {
   const weekStart = getWeekStart(menu);
-  const sunday = addDays(weekStart, -1);
+  const saturday = addDays(weekStart, -2);
   const friday = addDays(weekStart, 4);
-  return dateISO >= sunday && dateISO <= friday;
+  return dateISO >= saturday && dateISO <= friday;
+}
+
+/**
+ * Fase del menú respecto a una fecha: 'upcoming' antes del domingo de
+ * cocinado, 'active' del domingo al viernes, 'past' después.
+ */
+export function menuPhaseOn(menu: MinimalMenu, dateISO: string): 'upcoming' | 'active' | 'past' {
+  const weekStart = getWeekStart(menu);
+  if (dateISO < addDays(weekStart, -1)) return 'upcoming';
+  if (dateISO > addDays(weekStart, 4)) return 'past';
+  return 'active';
 }
 
 // --- Recetas y calendario de consumo -----------------------------------------
