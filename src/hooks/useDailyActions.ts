@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import {
   getTodayActions,
-  isMenuActiveOn,
+  menuPhaseOn,
   todayLocalISO,
   type DailyAction,
 } from '../utils/dailyActions';
@@ -11,10 +11,13 @@ export interface TodayAction extends DailyAction {
   done: boolean;
 }
 
+export type MenuPhase = 'upcoming' | 'active' | 'past';
+
 /**
  * Acciones de conservación que tocan hoy (descongelar/congelar/comer) con su
  * estado hecho/pendiente. pendingCount solo cuenta thaw/freeze sin marcar
- * (las 'eat' son informativas).
+ * (las 'eat' son informativas). menuPhase distingue el menú aún por cocinar
+ * ('upcoming', sábado) del vigente y del ya terminado.
  */
 export function useDailyActions() {
   const currentMenu = useAppStore(s => s.currentMenu);
@@ -24,9 +27,16 @@ export function useDailyActions() {
 
   return useMemo(() => {
     if (!currentMenu) {
-      return { todayActions: [] as TodayAction[], pendingCount: 0, isMenuCurrent: false, today };
+      return {
+        todayActions: [] as TodayAction[],
+        pendingCount: 0,
+        isMenuCurrent: false,
+        menuPhase: 'past' as MenuPhase,
+        today,
+      };
     }
-    const isMenuCurrent = isMenuActiveOn(currentMenu, today);
+    const menuPhase: MenuPhase = menuPhaseOn(currentMenu, today);
+    const isMenuCurrent = menuPhase === 'active';
     const doneIds = new Set(
       dailyActionsDone?.menuId === currentMenu.id ? dailyActionsDone.done : []
     );
@@ -35,6 +45,6 @@ export function useDailyActions() {
       done: doneIds.has(a.id),
     }));
     const pendingCount = todayActions.filter(a => a.type !== 'eat' && !a.done).length;
-    return { todayActions, pendingCount, isMenuCurrent, today };
+    return { todayActions, pendingCount, isMenuCurrent, menuPhase, today };
   }, [currentMenu, batchGuide, dailyActionsDone, today]);
 }

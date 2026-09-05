@@ -423,6 +423,22 @@ Conservación indicada: ${recipe.storage.days} días nevera, congelable: ${recip
     return meals.length > 0 ? `- ${day}: ${meals.join(', ')}` : null;
   }).filter(Boolean);
 
+  // Los ejemplos no pueden nombrar un electrodoméstico excluido: el modelo
+  // tiende a copiarlos literalmente por encima de la sección de exclusión.
+  const ovenOut = excludedEquipment.includes('horno');
+  const equipmentExample = ovenOut
+    ? 'olla grande 5L + sartén antiadherente 28 cm a fuego medio-alto'
+    : 'olla grande 5L + horno precalentado a 200 °C';
+  const groupingExample = ovenOut
+    ? 'toda la plancha junta, todas las cocciones de cereal juntas'
+    : 'todo el horno junto, todas las cocciones de cereal juntas';
+  const excludedLabels = excludedApplianceLabels(excludedEquipment);
+  const equipmentCheck = excludedLabels.length > 0
+    ? `\n- ANTES DE RESPONDER revisa cada "equipment", "title", "description" y cada sub-paso: si alguno
+  menciona ${excludedLabels.join(' o ')} la respuesta es INVÁLIDA. Sustituye la técnica (sartén, plancha,
+  cazuela tapada...) y ajusta tiempos e intensidad del fuego`
+    : '';
+
   return `
 Genera la guía de batch cooking del domingo para estas recetas.
 
@@ -439,10 +455,10 @@ INSTRUCCIONES PARA LA GUÍA DE COCINADO ("tasks"):
   ("hasta que el borde esté dorado", "cuando el agua rompa a hervir")
 - Máximo 6 sub-pasos por tarea, cada uno de 1-2 frases
 - "seasoning": especias y condimentos EXACTOS de la tarea (ej: "5 g sal, 1 cdta pimentón dulce, 2 dientes de ajo picados")
-- "equipment": utensilios y preparación previa (ej: "olla grande 5L + horno precalentado a 200 °C")
+- "equipment": utensilios y preparación previa (ej: "${equipmentExample}")
 - "recipeNames": recetas a las que pertenece la tarea
-- Agrupa por técnica (todo el horno junto, todas las cocciones de cereal juntas), no por receta
-- Las cantidades de "steps" y "seasoning" son para el TOTAL de raciones de la semana (multiplica por las raciones indicadas)
+- Agrupa por técnica (${groupingExample}), no por receta
+- Las cantidades de "steps" y "seasoning" son para el TOTAL de raciones de la semana (multiplica por las raciones indicadas)${equipmentCheck}
 
 INSTRUCCIONES PARA EL PLAN DE CONSERVACIÓN ("conservationPlan") — una entrada POR RECETA:
 - Decide nevera vs congelador según los días de consumo reales del calendario de arriba:

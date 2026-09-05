@@ -16,7 +16,9 @@ import {
   sanitizeMenuResponse,
   validateGuideResponse,
   sanitizeGuideResponse,
+  stripExcludedEquipment,
 } from '../utils/validators';
+import { findExcludedApplianceMentions } from '../utils/equipment';
 import type {
   BaseRecipe,
   GeminiRecipe,
@@ -31,7 +33,19 @@ import type {
 } from '../types';
 import { isSupabaseConfigured, invokeFunction, functionErrorMessage } from '../lib/supabase';
 
-const MODEL = 'gemini-3.5-flash';
+// El modelo lo decide la Edge Function gemini-proxy (secret GEMINI_MODEL +
+// cadena de fallback); el cliente solo recibe cuál sirvió cada respuesta en
+// la cabecera x-batchfit-model. Se guarda para mostrarlo en Generar.
+let lastModelUsed: string | null = null;
+export const getLastModelUsed = (): string | null => lastModelUsed;
+
+/** Errores de validación causados por electrodomésticos excluidos (ver validators). */
+const isEquipmentError = (e: string): boolean => e.includes('EXCLUIDO');
+
+const withPreviousErrors = (prompt: string, previousErrors: string[]): string =>
+  previousErrors.length === 0
+    ? prompt
+    : `${prompt}\n\nATENCIÓN: tu respuesta anterior fue RECHAZADA por estos motivos. Corrígelos todos:\n${previousErrors.map(e => `- ${e}`).join('\n')}`;
 
 // Cuerpo de la petición REST de Gemini (generateContent). La API key nunca
 // llega al cliente: la Edge Function gemini-proxy la añade en el servidor.
@@ -63,9 +77,11 @@ async function callGemini(body: GeminiRequestBody, timeoutMs: number): Promise<s
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await invokeFunction('gemini-proxy', {
-      json: { model: MODEL, body },
+      json: { body },
       signal: controller.signal,
     });
+    const servedBy = res.headers.get('x-batchfit-model');
+    if (servedBy) lastModelUsed = servedBy;
     if (!res.ok) {
       throw new Error(await functionErrorMessage(res));
     }
@@ -100,6 +116,7 @@ export class GeminiService {
   ): Promise<GeneratedMenuResponse> {
     const prompt = generateMenuPrompt(excludeRecipeNames, weekNumber, year, selection, opts);
     const systemPrompt = buildMenuSystemPrompt(profile);
+    const excludedEquipment = opts.excludedEquipment ?? [];
 
     let lastError: Error | null = null;
     let previousErrors: string[] = [];
@@ -107,10 +124,9 @@ export class GeminiService {
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         // En los reintentos, adjunta los errores del intento anterior para que
-        // Gemini los corrija (p. ej. falta de variedad en principal/cena).
-        const fullPrompt = previousErrors.length === 0
-          ? prompt
-          : `${prompt}\n\nATENCIÓN: tu respuesta anterior fue RECHAZADA por estos motivos. Corrígelos todos:\n${previousErrors.map(e => `- ${e}`).join('\n')}`;
+        // Gemini los corrija (p. ej. falta de variedad en principal/cena o
+        // una receta que usa un electrodoméstico excluido).
+        const fullPrompt = withPreviousErrors(prompt, previousErrors);
 
         const text = await callGemini({
           systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -130,18 +146,18 @@ export class GeminiService {
           throw new Error('Gemini no devolvió JSON válido');
         }
 
-        const { valid, errors } = validateMenuResponse(parsed, selection);
+        const { valid, errors } = validateMenuResponse(parsed, selection, excludedEquipment);
         if (!valid) {
           console.warn('[Gemini] Respuesta con errores de validación:', errors);
           previousErrors = errors;
           if (attempt === 3) {
             // En el tercer intento, usar lo que tenemos aunque no sea perfecto
-            return sanitizeMenuResponse(parsed, selection);
+            return this.sanitizeMenu(parsed, selection, excludedEquipment);
           }
           continue;
         }
 
-        return sanitizeMenuResponse(parsed, selection);
+        return this.sanitizeMenu(parsed, selection, excludedEquipment);
       } catch (error) {
         lastError = error as Error;
         console.error(`[Gemini] Intento ${attempt} fallido:`, error);
@@ -155,10 +171,26 @@ export class GeminiService {
     throw lastError ?? new Error('Error desconocido al generar el menú con Gemini');
   }
 
+  /** Saneado común del menú: referencias de nombres + guía básica sin electrodomésticos excluidos. */
+  private sanitizeMenu(
+    parsed: GeneratedMenuResponse,
+    selection: MealSelection,
+    excludedEquipment: string[]
+  ): GeneratedMenuResponse {
+    const clean = sanitizeMenuResponse(parsed, selection);
+    if (clean.batchCookingGuide?.tasks) {
+      clean.batchCookingGuide.tasks = stripExcludedEquipment(clean.batchCookingGuide.tasks, excludedEquipment);
+    }
+    return clean;
+  }
+
   /**
    * Segunda llamada: guía batch ultra-detallada + plan de conservación.
-   * El menú ya existe cuando se llama, así que solo 2 intentos y en caso de
-   * fallo el llamante usa la guía básica de la primera llamada.
+   * El menú ya existe cuando se llama, así que solo 2 intentos (3 si el único
+   * problema es un electrodoméstico excluido, que se le devuelve al modelo
+   * como error a corregir) y en caso de fallo el llamante usa la guía básica
+   * de la primera llamada. Pase lo que pase, la guía devuelta nunca prescribe
+   * un electrodoméstico excluido sin marcar la tarea para adaptar.
    */
   async generateBatchGuide(
     recipes: BaseRecipe[],
@@ -167,14 +199,20 @@ export class GeminiService {
   ): Promise<GeneratedGuideResponse> {
     const prompt = generateBatchGuidePrompt(recipes, schedule, excludedEquipment);
     const recipeNames = schedule.map(s => s.recipeName);
+    const finish = (parsed: GeneratedGuideResponse): GeneratedGuideResponse => {
+      const clean = sanitizeGuideResponse(parsed, recipeNames);
+      return { ...clean, tasks: stripExcludedEquipment(clean.tasks, excludedEquipment) };
+    };
 
     let lastError: Error | null = null;
+    let previousErrors: string[] = [];
+    let maxAttempts = 2;
 
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const text = await callGemini({
           systemInstruction: { parts: [{ text: GEMINI_GUIDE_SYSTEM_PROMPT }] },
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          contents: [{ role: 'user', parts: [{ text: withPreviousErrors(prompt, previousErrors) }] }],
           generationConfig: {
             responseMimeType: 'application/json',
             temperature: 0.5,
@@ -192,20 +230,24 @@ export class GeminiService {
           throw new Error('Gemini no devolvió JSON válido para la guía');
         }
 
-        const { valid, errors } = validateGuideResponse(parsed);
+        const { valid, errors } = validateGuideResponse(parsed, excludedEquipment);
         if (!valid) {
           console.warn('[Gemini] Guía con errores de validación:', errors);
-          if (attempt === 2) {
-            return sanitizeGuideResponse(parsed, recipeNames);
+          previousErrors = errors;
+          // Un tercer intento solo merece la pena si lo único que falla es el
+          // equipamiento: es corregible con el aviso y el coste es una llamada.
+          if (attempt === 2 && errors.every(isEquipmentError)) maxAttempts = 3;
+          if (attempt === maxAttempts) {
+            return finish(parsed);
           }
           continue;
         }
 
-        return sanitizeGuideResponse(parsed, recipeNames);
+        return finish(parsed);
       } catch (error) {
         lastError = error as Error;
         console.error(`[Gemini] Guía — intento ${attempt} fallido:`, error);
-        if (attempt < 2) {
+        if (attempt < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
@@ -228,13 +270,15 @@ export class GeminiService {
     excludedEquipment?: string[];
   }): Promise<GeminiRecipe> {
     const prompt = generateSingleMealPrompt(params);
+    const excludedEquipment = params.excludedEquipment ?? [];
     let lastError: Error | null = null;
+    let previousErrors: string[] = [];
 
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const text = await callGemini({
           systemInstruction: { parts: [{ text: GEMINI_SINGLE_MEAL_SYSTEM_PROMPT }] },
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          contents: [{ role: 'user', parts: [{ text: withPreviousErrors(prompt, previousErrors) }] }],
           generationConfig: {
             responseMimeType: 'application/json',
             temperature: 0.8,
@@ -258,6 +302,14 @@ export class GeminiService {
           f => typeof nutrition[f] !== 'number' || !Number.isFinite(nutrition[f] as number)
         );
         if (badNutrition) throw new Error('Receta de sustitución con nutrición no numérica');
+        // Misma regla que el menú semanal: sin electrodomésticos excluidos en
+        // los pasos. Se reintenta una vez con el error; si insiste, el
+        // llamante recurre al banco base (ya filtrado por equipamiento).
+        const found = findExcludedApplianceMentions([...(parsed.steps ?? []), parsed.batchNotes], excludedEquipment);
+        if (found.length > 0) {
+          previousErrors = [`Receta "${parsed.name}" usa ${found.join(' y ')} — está EXCLUIDO, adapta la técnica`];
+          throw new Error(previousErrors[0]);
+        }
         return parsed;
       } catch (error) {
         lastError = error as Error;

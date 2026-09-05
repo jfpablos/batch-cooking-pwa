@@ -36,8 +36,38 @@ export function availableApplianceLabels(excludedIds: string[]): string[] {
  * recalentado sugiera microondas no impide cocinar el plato.
  */
 export function recipeUsesExcludedAppliance(recipe: BaseRecipe, excludedIds: string[]): boolean {
+  return findExcludedApplianceMentions([...recipe.steps, recipe.batchNotes ?? ''], excludedIds).length > 0;
+}
+
+/**
+ * Etiquetas de los electrodomésticos excluidos que aparecen en los textos
+ * (pasos, notas, tareas de la guía...). Sirve para validar las respuestas de
+ * la IA: la exclusión viaja en el prompt, pero el modelo a veces la ignora.
+ */
+export function findExcludedApplianceMentions(
+  texts: (string | undefined | null)[],
+  excludedIds: string[]
+): string[] {
   const excluded = APPLIANCES.filter(a => excludedIds.includes(a.id));
-  if (excluded.length === 0) return false;
-  const text = normalizeText([...recipe.steps, recipe.batchNotes ?? ''].join(' '));
-  return excluded.some(a => a.keywords.some(k => text.includes(k)));
+  if (excluded.length === 0) return [];
+  const text = normalizeText(texts.filter((t): t is string => typeof t === 'string').join(' '));
+  return excluded
+    .filter(a => a.keywords.some(k => text.includes(k)))
+    .map(a => a.label);
+}
+
+/**
+ * Técnica alternativa sugerida para cada electrodoméstico excluido, para
+ * sanear textos de la IA que lo sigan mencionando tras los reintentos.
+ */
+export function applianceAlternative(label: string): string {
+  switch (label) {
+    case 'Horno': return 'sartén/plancha a fuego medio-alto o cazuela tapada';
+    case 'Air fryer': return 'sartén con un hilo de aceite';
+    case 'Microondas': return 'cazuela o sartén a fuego suave';
+    case 'Olla exprés': return 'olla normal (alarga la cocción)';
+    case 'Batidora': return 'tenedor o pasapurés';
+    case 'Robot de cocina': return 'cuchillo y cazuela';
+    default: return 'un método disponible en tu cocina';
+  }
 }

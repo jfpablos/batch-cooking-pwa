@@ -1,6 +1,7 @@
-import { Check, Snowflake, Refrigerator, UtensilsCrossed, CalendarX } from 'lucide-react';
+import { Check, Snowflake, Refrigerator, UtensilsCrossed, CalendarX, CalendarClock } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useDailyActions, type TodayAction } from '../../hooks/useDailyActions';
+import { addDays, getWeekStart } from '../../utils/dailyActions';
 import { PushToggle } from './PushToggle';
 
 const TYPE_STYLE = {
@@ -59,7 +60,8 @@ function ActionRow({ action, onToggle }: { action: TodayAction; onToggle: () => 
 export function TodayPanel() {
   const currentMenu = useAppStore(s => s.currentMenu);
   const toggleDailyAction = useAppStore(s => s.toggleDailyAction);
-  const { todayActions, isMenuCurrent } = useDailyActions();
+  const setActiveTab = useAppStore(s => s.setActiveTab);
+  const { todayActions, isMenuCurrent, menuPhase } = useDailyActions();
 
   if (!currentMenu) return null;
 
@@ -68,6 +70,13 @@ export function TodayPanel() {
   });
   const tasks = todayActions.filter(a => a.type === 'thaw' || a.type === 'freeze');
   const eats = todayActions.filter(a => a.type === 'eat');
+  const cookSundayLabel = new Date(addDays(getWeekStart(currentMenu), -1) + 'T12:00:00')
+    .toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
+
+  const noticeStyle = {
+    display: 'flex', gap: 8, alignItems: 'flex-start', padding: '4px 2px 2px',
+    fontSize: 12.5, lineHeight: 1.4, color: 'var(--muted)',
+  } as const;
 
   return (
     <div style={{ padding: '14px 18px 0' }}>
@@ -83,10 +92,33 @@ export function TodayPanel() {
           <span className="display" style={{ fontSize: 13, textTransform: 'capitalize' }}>{dateLabel}</span>
         </div>
 
-        {!isMenuCurrent ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '4px 2px 2px', fontSize: 12.5, lineHeight: 1.4, color: 'var(--muted)' }}>
+        {menuPhase === 'upcoming' ? (
+          <div style={noticeStyle}>
+            <CalendarClock size={15} strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>
+              Se cocina el <strong style={{ color: 'var(--ink)' }}>{cookSundayLabel}</strong>. Hoy toca la compra:
+              {' '}
+              <button
+                onClick={() => setActiveTab(2)}
+                style={{ all: 'unset', cursor: 'pointer', color: 'var(--orange-2)', fontWeight: 700 }}
+              >
+                ver la lista
+              </button>
+            </span>
+          </div>
+        ) : !isMenuCurrent ? (
+          <div style={noticeStyle}>
             <CalendarX size={15} strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>Este menú es de otra semana. Genera el nuevo para ver las tareas del día.</span>
+            <span>
+              Semana terminada.{' '}
+              <button
+                onClick={() => setActiveTab(0)}
+                style={{ all: 'unset', cursor: 'pointer', color: 'var(--orange-2)', fontWeight: 700 }}
+              >
+                Genera el menú de la próxima semana
+              </button>
+              {' '}para ver las tareas del día.
+            </span>
           </div>
         ) : (
           <>
