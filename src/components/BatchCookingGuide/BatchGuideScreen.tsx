@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Play, Pause, Timer, Check, Sparkles, ArrowRight, ArrowLeft, RotateCcw, Flame, UtensilsCrossed, Zap } from 'lucide-react';
+import { Play, Pause, Timer, Check, Sparkles, ArrowRight, ArrowLeft, RotateCcw, Flame, UtensilsCrossed, Zap, Package, Tag } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { menuService } from '../../services/menuService';
 import { storageService } from '../../services/storageService';
@@ -10,6 +10,8 @@ import { useTimer, formatTimer } from '../../hooks/useTimer';
 import { useWakeLock } from '../../hooks/useWakeLock';
 import { unlockAudio } from '../../utils/alarm';
 import { ConservationCard } from './ConservationCard';
+import { TupperAssemblyCard } from './TupperAssemblyCard';
+import { buildTupperAssembly } from '../../utils/tupperAssembly';
 import { TodayPanel } from '../DailyActions/TodayPanel';
 import { EmptyState } from '../Common/EmptyState';
 import type { BaseRecipe, BatchProgress, ConservationEntry } from '../../types';
@@ -23,6 +25,7 @@ interface NormTask {
   steps?: string[];
   seasoning?: string;
   equipment?: string;
+  storage?: string;
 }
 
 // Fallback guide for menus generated from the base recipe bank (no AI batch
@@ -50,7 +53,7 @@ function defaultTasks(excludedEquipment: string[]): NormTask[] {
     { order: 8, title: 'Cocer arroz blanco (1 kg)', dur: 18, parallel: 7,
       note: 'Para post-entreno y pre-entreno de la semana.' },
     { order: 9, title: 'Repartir en tuppers', dur: 11, parallel: null,
-      note: 'Etiquetar L–V por comida. Salsas en bote aparte.' },
+      note: 'Sigue la sección "Montaje de tupers" de abajo: un tuper por día y comida, etiquetado en la tapa. Salsas en bote aparte.' },
   ];
 }
 
@@ -73,6 +76,7 @@ export function BatchGuideScreen() {
   const [done, setDone] = useState<Set<number>>(() => new Set(loadProgress()?.done ?? []));
   const [cooking, setCooking] = useState(() => loadProgress()?.cooking ?? false);
   const [current, setCurrent] = useState<number | null>(() => loadProgress()?.current ?? null);
+  const [packed, setPacked] = useState<Set<string>>(() => new Set(loadProgress()?.packed ?? []));
 
   // En modo cocinar la pantalla no se apaga (manos ocupadas en la cocina)
   useWakeLock(cooking);
@@ -88,9 +92,9 @@ export function BatchGuideScreen() {
   // Persist progress so it survives tab switches and reloads.
   useEffect(() => {
     if (!currentMenu) return;
-    const progress: BatchProgress = { menuId: currentMenu.id, done: [...done], current, cooking };
+    const progress: BatchProgress = { menuId: currentMenu.id, done: [...done], current, cooking, packed: [...packed] };
     storageService.set(STORAGE_KEYS.BATCH_PROGRESS, progress);
-  }, [done, current, cooking, currentMenu]);
+  }, [done, current, cooking, packed, currentMenu]);
 
   if (!currentMenu) {
     return (
@@ -125,6 +129,7 @@ export function BatchGuideScreen() {
     steps: t.steps,
     seasoning: t.seasoning,
     equipment: t.equipment,
+    storage: t.storageResult,
   })) : defaultTasks(excludedEquipment)).slice().sort((a, b) => a.order - b.order);
 
   // Plan de conservación: el detallado de la IA si existe; si no, derivado
@@ -137,6 +142,28 @@ export function BatchGuideScreen() {
       ? batchGuide!.conservationPlan
       : buildBasicConservationPlan(currentMenu)
   ).filter(e => !freshNames.has(e.recipeName));
+
+  // Montaje de tupers: un tuper por ración (día × comida) de cada receta de
+  // batch, con su destino según el plan de conservación normalizado.
+  const assemblies = buildTupperAssembly(currentMenu, conservationEntries);
+  const totalTuppers = assemblies.reduce((a, r) => a + r.units.length, 0);
+  const totalFreezer = assemblies.reduce((a, r) => a + r.freezerCount, 0);
+  const totalPacked = assemblies.reduce((a, r) => a + r.units.filter(u => packed.has(u.id)).length, 0);
+
+  const togglePacked = (id: string) => setPacked(prev => {
+    const s = new Set(prev);
+    if (s.has(id)) s.delete(id);
+    else s.add(id);
+    return s;
+  });
+  const togglePackedAll = (ids: string[], value: boolean) => setPacked(prev => {
+    const s = new Set(prev);
+    for (const id of ids) {
+      if (value) s.add(id);
+      else s.delete(id);
+    }
+    return s;
+  });
 
   const nextPending = (doneSet: Set<number>): number | null =>
     tasks.find(t => !doneSet.has(t.order))?.order ?? null;
@@ -159,7 +186,10 @@ export function BatchGuideScreen() {
     if (activeTimer?.taskOrder === current) resetTimer();
     const next = nextPending(s);
     setCurrent(next);
-    if (next == null) setCooking(false); // finished the whole route
+    if (next == null) {
+      setCooking(false); // finished the whole route → toca montar los tupers
+      document.getElementById('batch-montaje')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const goBack = () => {
@@ -448,6 +478,12 @@ export function BatchGuideScreen() {
                       <span><strong>Sazón:</strong> {t.seasoning}</span>
                     </div>
                   )}
+                  {t.storage && (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginTop: 5, fontSize: 11.5, lineHeight: 1.4, color: '#2563EB' }}>
+                      <Package size={12} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <span><strong>Al terminar:</strong> {t.storage}</span>
+                    </div>
+                  )}
                   {t.steps && t.steps.length > 0 && (
                     <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--line-2)' }}>
                       {t.steps.map((step, i) => (
@@ -483,6 +519,49 @@ export function BatchGuideScreen() {
           })}
         </div>
       </div>
+
+      {/* ── Montaje de tupers ── */}
+      {assemblies.length > 0 && (
+        <div id="batch-montaje" style={{ padding: '8px 18px 0', scrollMarginTop: 'var(--safe-area-top)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <span className="num" style={{ fontFamily: 'var(--ff-display)', fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.14em' }}>
+              MONTAJE DE TUPERS
+            </span>
+            <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+            <span className="display num" style={{ fontSize: 13 }}>
+              {totalPacked}/{totalTuppers}
+            </span>
+          </div>
+
+          <div style={{
+            padding: '12px 14px', borderRadius: 14,
+            background: 'var(--orange-soft)', border: '1px solid rgba(255,107,53,0.25)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Package size={16} strokeWidth={2.2} style={{ color: 'var(--orange-2)', flexShrink: 0 }} />
+              <span className="display" style={{ fontSize: 14 }}>
+                {totalTuppers} tupers esta semana
+                {totalFreezer > 0 && <span style={{ fontWeight: 500, color: 'var(--muted)' }}> · {totalFreezer} al congelador</span>}
+              </span>
+            </div>
+            <ol style={{ margin: '8px 0 0', paddingLeft: 18, listStyle: 'decimal', fontSize: 12, lineHeight: 1.5, color: 'var(--ink-2)' }}>
+              <li>Al acabar cada receta, saca tantos tupers como raciones y reparte <strong>una ración por tuper</strong> con las cantidades de "Cada tuper lleva".</li>
+              <li>Escribe en la tapa la etiqueta <Tag size={11} strokeWidth={2.2} style={{ display: 'inline', verticalAlign: '-1px' }} /> del día y la comida.</li>
+              <li>Deja enfriar destapado 20–30 min y guarda cada tuper donde indica su chip: nevera o congelador.</li>
+            </ol>
+          </div>
+
+          {assemblies.map(a => (
+            <TupperAssemblyCard
+              key={a.recipeName}
+              assembly={a}
+              packed={packed}
+              onToggle={togglePacked}
+              onToggleAll={togglePackedAll}
+            />
+          ))}
+        </div>
+      )}
 
       {/* ── Al momento (no entra en el batch) ── */}
       {freshRecipes.length > 0 && (
