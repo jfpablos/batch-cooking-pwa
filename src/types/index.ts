@@ -391,6 +391,8 @@ export interface BatchProgress {
   done: number[];
   current: number | null;
   cooking: boolean;
+  /** ids de TupperUnit ya montados (sección "Montaje de tupers") */
+  packed?: string[];
 }
 
 // =============================================
