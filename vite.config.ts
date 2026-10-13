@@ -4,8 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // On GitHub Pages the app is served from https://<user>.github.io/batch-cooking-pwa/
 // so production builds need that sub-path as base. Dev keeps the root path.
-export default defineConfig(({ command }) => {
-  const base = command === 'build' ? '/batch-cooking-pwa/' : '/'
+// BatchFit se sirve desde la raíz de batchfit.online.
+export default defineConfig(() => {
+  const base = '/'
 
   return {
     base,
